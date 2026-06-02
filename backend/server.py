@@ -1,13 +1,14 @@
 # ══════════════════════════════════════════════════════════
-# MetaBuscador Semántico — Backend Python v2
-# server.py — owlready2 + SPARQLWrapper + Flask
+# MetaBuscador Semántico — Backend Python v3
+# server.py — owlready2 + RDFLib SPARQL + SPARQLWrapper + Flask
 # ══════════════════════════════════════════════════════════
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from SPARQLWrapper import SPARQLWrapper, JSON
 from owlready2 import get_ontology, default_world
-import os, traceback, tempfile
+import os, traceback, tempfile, re
+import rdflib
 
 app = Flask(__name__)
 CORS(app, origins="*")
@@ -15,6 +16,9 @@ CORS(app, origins="*")
 onto              = None
 ontologia_cargada = False
 individuos_cache  = []
+grafo_local       = rdflib.Graph()
+# Guarda la ruta real del archivo cargado para poder reguardar en el mismo lugar
+ruta_archivo_cargado = None
 
 # ── Construye el cache de individuos desde owlready2 ─────
 def construir_cache():
@@ -49,30 +53,41 @@ def construir_cache():
         })
     print(f"[owlready2] Cache: {len(individuos_cache)} individuos")
 
-# ── Auto-carga al iniciar ─────────────────────────────────
+# ── Auto-carga al iniciar — busca todos los formatos posibles ─────
 def auto_cargar():
-    global onto, ontologia_cargada
+    global onto, ontologia_cargada, ruta_archivo_cargado
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    for nombre in ["web-semanticas.owx", "electrodomesticos.owl",
-                   "electrodomesticos.owx", "ontologia.owl"]:
-        ruta = os.path.join(base_dir, "ontologia", nombre)
+    ontologia_dir = os.path.join(base_dir, "ontologia")
+
+    # CORREGIDO: busca todos los nombres posibles en orden de preferencia
+    nombres_posibles = [
+        "electrodomesticos.owl",
+        "web_semanticas.rdf",
+        "web-semanticas.owx",
+        "web_semanticas.owl",
+        "ontologia.owl",
+        "ontologia.rdf",
+    ]
+
+    for nombre in nombres_posibles:
+        ruta = os.path.join(ontologia_dir, nombre)
         if os.path.exists(ruta):
             print(f"  Auto-cargando: {ruta}")
             try:
-                # CAMBIA ESTO:
-                # ruta_url = "file:///" + ruta.replace("\\", "/")
-                
-                # POR ESTO (Solo dos barras):
-                ruta_url = "file://" + ruta.replace("\\", "/")
-                
-                onto = get_ontology(ruta_url).load()
+                ruta_url = "file:///" + ruta.replace("\\", "/").lstrip("/")
                 onto = get_ontology(ruta_url).load()
                 ontologia_cargada = True
+                ruta_archivo_cargado = ruta
+
+                grafo_local.parse(ruta, format="xml")
                 construir_cache()
-                print(f"  ✓ Cargado: {len(individuos_cache)} individuos")
+                print(f"  ✓ Cargado: {len(individuos_cache)} individuos, {len(grafo_local)} triples")
             except Exception as e:
-                print(f"  ✗ Error: {e}")
-            return
+                print(f"  ✗ Error con {nombre}: {e}")
+                traceback.print_exc()
+            return  # Para en el primero que funcione
+
+    print("  ✗ No se encontró ningún archivo de ontología en:", ontologia_dir)
 
 # ══════════════════════════════════════════════════════════
 # RUTAS
@@ -80,7 +95,7 @@ def auto_cargar():
 
 @app.route("/cargar_archivo", methods=["POST"])
 def cargar_archivo():
-    global onto, ontologia_cargada
+    global onto, ontologia_cargada, ruta_archivo_cargado
     if 'owl_file' not in request.files:
         return jsonify({"ok": False, "error": "No se recibió archivo"}), 400
     archivo = request.files['owl_file']
@@ -88,19 +103,21 @@ def cargar_archivo():
         archivo.save(tmp.name)
         ruta_tmp = tmp.name
     try:
-        # CAMBIA ESTO:
-        # ruta_url = "file:///" + ruta_tmp.replace("\\", "/")
-        
-        # POR ESTO (Solo dos barras):
-        ruta_url = "file://" + ruta_tmp.replace("\\", "/")
-        
-        onto = get_ontology(ruta_url).load()
+        ruta_url = "file:///" + ruta_tmp.replace("\\", "/").lstrip("/")
         onto = get_ontology(ruta_url).load()
         ontologia_cargada = True
+        ruta_archivo_cargado = ruta_tmp
+
+        grafo_local.remove((None, None, None))
+        grafo_local.parse(ruta_tmp, format="xml")
+
         construir_cache()
-        os.unlink(ruta_tmp)
-        return jsonify({"ok": True, "archivo": archivo.filename,
-                        "individuos": len(individuos_cache)})
+        return jsonify({
+            "ok":         True,
+            "archivo":    archivo.filename,
+            "individuos": len(individuos_cache),
+            "triples":    len(grafo_local)
+        })
     except Exception as e:
         if os.path.exists(ruta_tmp): os.unlink(ruta_tmp)
         traceback.print_exc()
@@ -111,33 +128,68 @@ def cargar_archivo():
 def buscar_local():
     if not ontologia_cargada:
         return jsonify({"ok": False, "error": "Ontología no cargada"}), 400
-    
-    term         = request.args.get("term",  "").strip().lower()
+
+    term_raw     = request.args.get("term",  "").strip().lower()
     clase_filtro = request.args.get("clase", "").strip().lower()
-    resultados = []
+    lang         = request.args.get("lang",  "es").strip().lower()
 
-    # 1. Dividimos el término de búsqueda en palabras individuales (tokens)
-    tokens_busqueda = term.split() if term else []
+    # Validar idioma
+    if lang not in ['es', 'en', 'both']:
+        lang = 'es'
 
-    for ind in individuos_cache:
-        # Filtro por clase
-        if clase_filtro and clase_filtro not in ind["clase"].lower():
-            continue
-            
-        # Filtro por término de búsqueda (Tokenización)
-        if tokens_busqueda:
-            texto = (ind["nombre"] + " " + ind["clase"] + " " +
-                     " ".join(str(v) for v in ind["propiedades"].values())).lower()
-            
-            # 2. Verificamos que TODAS las palabras existan en el texto
-            # Usamos all() para asegurar que coincida "gas" Y "cocina" en cualquier orden
-            if not all(token in texto for token in tokens_busqueda):
-                continue
-                
-        resultados.append(ind)
-        
-    return jsonify({"ok": True, "term": term,
-                    "total": len(resultados), "resultados": resultados[:200]})
+    # Separar por comas para búsquedas múltiples simultáneas
+    terminos = [t.strip() for t in term_raw.split(",") if t.strip()]
+
+    sparql_query = """
+    PREFIX rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+    PREFIX owl:  <http://www.w3.org/2002/07/owl#>
+    PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+    SELECT DISTINCT ?ind
+    WHERE {
+        ?ind rdf:type ?clase .
+    """
+
+    if terminos:
+        sparql_query += "    OPTIONAL { ?ind rdfs:label ?lbl . }\n"
+
+    if clase_filtro:
+        # Sanitización básica: solo letras, números, espacios y guiones
+        clase_segura = re.sub(r'[^\w\s\-]', '', clase_filtro)
+        sparql_query += f'    FILTER(CONTAINS(LCASE(STR(?clase)), "{clase_segura}"))\n'
+
+    if terminos:
+        filtros = []
+        for t in terminos:
+            # Sanitización del término de búsqueda
+            t_seguro = re.sub(r'["\\\n\r]', '', t)
+            filtros.append(
+                f'(CONTAINS(LCASE(STR(?ind)), "{t_seguro}") || '
+                f'CONTAINS(LCASE(COALESCE(STR(?lbl), "")), "{t_seguro}"))'
+            )
+        sparql_query += "    FILTER( " + " || ".join(filtros) + " )\n"
+
+    sparql_query += "}"
+
+    resultados_uris = set()
+    try:
+        qres = grafo_local.query(sparql_query)
+        for row in qres:
+            uri = str(row.ind)
+            id_ind = uri.split("#")[-1] if "#" in uri else uri.split("/")[-1]
+            resultados_uris.add(id_ind)
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"Error ejecutando SPARQL: {str(e)}"}), 500
+
+    resultados = [ind for ind in individuos_cache if ind["id"] in resultados_uris]
+
+    return jsonify({
+        "ok":        True,
+        "term":      term_raw,
+        "lang":      lang,
+        "total":     len(resultados),
+        "resultados": resultados[:200]
+    })
 
 
 @app.route("/clases", methods=["GET"])
@@ -159,94 +211,144 @@ def stats():
         return jsonify({"ok": False, "error": "Ontología no cargada"}), 400
     return jsonify({
         "ok":          True,
-        "triples":     len(individuos_cache) * 3,
+        # CORREGIDO: usa el conteo real del grafo RDFLib
+        "triples":     len(grafo_local),
         "clases":      len(set(i["clase"] for i in individuos_cache)),
         "propiedades": len(set(p for i in individuos_cache for p in i["propiedades"]))
     })
 
+
 @app.route("/dbpedia", methods=["GET"])
-def query_dbpedia():
-    term = request.args.get("term", "").strip()
-    if not term:
-        return jsonify({"ok": False, "error": "Parámetro 'term' requerido"}), 400
+def buscar_dbpedia():
+    term_raw = request.args.get("term", "").strip()
+    lang     = request.args.get("lang", "both").strip().lower()
 
-    term_cap = term.capitalize()
-    term_low = term.lower()
-    term_title = term.title()
+    # Validar idioma
+    if lang not in ['es', 'en', 'both']:
+        lang = 'both'
 
-    # Consulta con UNION estable + captura de rdfs:comment (la descripción corta)
-    # Consulta ajustada para traer ES e EN
-    # Consulta actualizada: ¡Ahora buscamos dbo:description!
-    sparql_query = f"""
+    terminos = [t.strip() for t in term_raw.split(",") if t.strip()]
+
+    if not terminos:
+        return jsonify({"ok": True, "resultados": []})
+
+    # Sanitización y construcción del filtro REGEX
+    filtros_regex = []
+    for t in terminos:
+        t_seguro = re.sub(r'["\\\n\r]', '', t.lower())
+        filtros_regex.append(f'regex(LCASE(STR(?nombre)), "{t_seguro}")')
+    filtro_nombres = " || ".join(filtros_regex)
+
+    # Construir filtro de idioma dinámico
+    if lang == 'es':
+        filtro_lang = 'lang(?nombre) = "es"'
+    elif lang == 'en':
+        filtro_lang = 'lang(?nombre) = "en"'
+    else:  # both
+        filtro_lang = '(lang(?nombre) = "en" || lang(?nombre) = "es")'
+
+    query = f"""
     PREFIX dbo:  <http://dbpedia.org/ontology/>
     PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
     PREFIX foaf: <http://xmlns.com/foaf/0.1/>
 
-    SELECT DISTINCT ?recurso ?nombre ?descripcion ?imagen ?wikiPage
+    SELECT DISTINCT ?recurso ?nombre ?desc ?imagen ?wiki
     WHERE {{
-      {{ ?recurso rdfs:label "{term_cap}"@en . BIND("{term_cap}"@en AS ?nombre) }}
-      UNION
-      {{ ?recurso rdfs:label "{term_low}"@en . BIND("{term_low}"@en AS ?nombre) }}
-      UNION
-      {{ ?recurso rdfs:label "{term_title}"@en . BIND("{term_title}"@en AS ?nombre) }}
-      UNION
-      {{ ?recurso rdfs:label "{term_cap}"@es . BIND("{term_cap}"@es AS ?nombre) }}
-      UNION
-      {{ ?recurso rdfs:label "{term_low}"@es . BIND("{term_low}"@es AS ?nombre) }}
+      ?recurso a dbo:Device .
+      ?recurso rdfs:label ?nombre .
+      FILTER ({filtro_lang})
 
-      # Buscamos en dbo:description, si no hay, en rdfs:comment, y finalmente en dbo:abstract
-      OPTIONAL {{ ?recurso dbo:description ?desc . FILTER(LANG(?desc) = "es") }}
-      OPTIONAL {{ ?recurso rdfs:comment ?desc . FILTER(LANG(?desc) = "es" && !BOUND(?desc)) }}
-      OPTIONAL {{ ?recurso dbo:abstract ?desc . FILTER(LANG(?desc) = "es" && !BOUND(?desc)) }}
-      BIND(?desc AS ?descripcion)
+      FILTER ( {filtro_nombres} )
 
+      OPTIONAL {{ ?recurso rdfs:comment ?desc .
+                 FILTER (lang(?desc) = "es" || lang(?desc) = "en") }}
       OPTIONAL {{ ?recurso dbo:thumbnail ?imagen . }}
-      OPTIONAL {{ ?recurso foaf:isPrimaryTopicOf ?wikiPage . }}
+      OPTIONAL {{ ?recurso foaf:isPrimaryTopicOf ?wiki . }}
     }}
-    LIMIT 10
+    LIMIT 15
     """
-    try:
-        sparql = SPARQLWrapper("https://dbpedia.org/sparql")
-        sparql.setQuery(sparql_query)
-        sparql.setReturnFormat(JSON)
-        sparql.setTimeout(15) 
-        sparql.addCustomHttpHeader("User-Agent", "Mozilla/5.0")
-        
-        data = sparql.query().convert()
-        bindings = data.get("results", {}).get("bindings", [])
-        resultados, seen = [], set()
-        
-        for b in bindings:
-            recurso = b.get("recurso", {}).get("value", "")
-            if recurso in seen: continue
-            seen.add(recurso)
-            
-            # Prioridad: 1. Abstract ES, 2. Abstract EN, 3. Mensaje por defecto
-            desc_es = b.get("descripcion", {}).get("value", "")
-            desc_en = b.get("descEn", {}).get("value", "")
-            
-            # Si ambos están vacíos, ponemos un texto informativo
-            desc_raw = b.get("descripcion", {}).get("value", "")
-            desc_final = desc_raw if desc_raw else f"Información sobre {b.get('nombre', {}).get('value', 'este recurso')}. Consulta los enlaces para más detalles."
 
-            # Luego usas desc_final en tu append:
-            resultados.append({
-                "recurso": recurso,
-                "nombre": b.get("nombre", {}).get("value", ""),
-                "descripcion": desc_final,
-                "imagen":      b.get("imagen", {}).get("value", ""),
-                "wikiPage":    b.get("wikiPage", {}).get("value", ""),
-                "dbpediaLink": recurso.replace("http://dbpedia.org/resource/", "https://dbpedia.org/page/")
+    try:
+        sparql = SPARQLWrapper("http://dbpedia.org/sparql")
+        sparql.setQuery(query)
+        sparql.setReturnFormat(JSON)
+        resultados_sparql = sparql.query().convert()
+
+        formateados = []
+        vistos = set()
+        for b in resultados_sparql["results"]["bindings"]:
+            recurso = b["recurso"]["value"]
+            if recurso in vistos:
+                continue
+            vistos.add(recurso)
+            formateados.append({
+                "recurso":     recurso,
+                "nombre":      b["nombre"]["value"],
+                "descripcion": b.get("desc",    {}).get("value", ""),
+                "imagen":      b.get("imagen",  {}).get("value", ""),
+                "wikiPage":    b.get("wiki",    {}).get("value", ""),
+                "dbpediaLink": recurso,
+                "lang":        lang
             })
-            
-        return jsonify({
-            "ok": True,
-            "total": len(resultados),
-            "resultados": resultados
-        })
+
+        return jsonify({"ok": True, "resultados": formateados})
+
     except Exception as e:
+        traceback.print_exc()
         return jsonify({"ok": False, "error": str(e)}), 500
 
+
+@app.route("/poblar", methods=["POST"])
+def poblar_ontologia():
+    global onto, ontologia_cargada, ruta_archivo_cargado
+    if not ontologia_cargada:
+        return jsonify({"ok": False, "error": "Ontología no cargada"}), 400
+
+    data = request.json
+    nombre      = data.get("nombre", "")
+    uri_dbpedia = data.get("uri", "")
+
+    if not nombre:
+        return jsonify({"ok": False, "error": "Falta el campo 'nombre'"}), 400
+
+    try:
+        id_limpio = "DBP_" + re.sub(r'\W+', '_', nombre)
+
+        if hasattr(onto, "Electrodomestico"):
+            nuevo_ind = onto.Electrodomestico(id_limpio)
+        else:
+            nuevo_ind = onto.Thing(id_limpio)
+
+        nuevo_ind.label = [nombre]
+
+        if hasattr(onto, "sitio_web_oficial") and uri_dbpedia:
+            nuevo_ind.sitio_web_oficial = [uri_dbpedia]
+
+        # CORREGIDO: guarda en la ruta real del archivo cargado
+        if ruta_archivo_cargado and os.path.exists(os.path.dirname(ruta_archivo_cargado)):
+            ruta_guardado = ruta_archivo_cargado
+        else:
+            # Fallback: crea el archivo en la carpeta ontologia del proyecto
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            ruta_guardado = os.path.join(base_dir, "ontologia", "electrodomesticos.owl")
+
+        onto.save(file=ruta_guardado)
+
+        # Re-parsea el grafo para mantener consistencia
+        grafo_local.remove((None, None, None))
+        grafo_local.parse(ruta_guardado, format="xml")
+
+        construir_cache()
+
+        return jsonify({
+            "ok":      True,
+            "mensaje": f"'{nombre}' agregado exitosamente.",
+            "total":   len(individuos_cache)
+        })
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"ok": False, "error": str(e)}), 500
 
 
 @app.route("/health", methods=["GET"])
@@ -255,15 +357,15 @@ def health():
         "status":            "ok",
         "ontologia_cargada": ontologia_cargada,
         "individuos":        len(individuos_cache),
-        "triples":           len(individuos_cache) * 3,
-        "librerias":         ["owlready2", "SPARQLWrapper", "flask", "flask-cors"]
+        "triples":           len(grafo_local),   # conteo real
+        "librerias":         ["owlready2", "rdflib", "SPARQLWrapper", "flask", "flask-cors"]
     })
 
 
 if __name__ == "__main__":
     print("=" * 55)
-    print("  MetaBuscador Semántico — Backend Python v2")
-    print("  owlready2 + SPARQLWrapper + Flask")
+    print("  MetaBuscador Semántico — Backend Python v3")
+    print("  owlready2 + RDFLib SPARQL + SPARQLWrapper + Flask")
     print("  Puerto: http://localhost:5000")
     print("=" * 55)
     auto_cargar()

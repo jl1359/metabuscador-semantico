@@ -10,39 +10,44 @@
 <body>
 
 <div class="container">
-  <button id="themeToggle" class="theme-toggle" onclick="toggleTheme()">🌞</button>
+  <div style="display: flex; gap: 12px; position: absolute; top: 20px; right: 20px;">
+    <button id="langToggle" class="theme-toggle" title="Toggle language" style="padding: 8px 12px; font-size: 14px; background: var(--bg-secondary); border: 1px solid var(--border); cursor: pointer; border-radius: 8px; color: var(--text);">
+      <span id="langText">ES/EN</span>
+    </button>
+    <button id="themeToggle" class="theme-toggle" onclick="toggleTheme()">🌞</button>
+  </div>
 
   <!-- HEADER -->
   <header>
-    <div class="logo-badge">Web Semántica · UMSS</div>
-    <h1>MetaBuscador Semántico</h1>
-    <p class="subtitle">Ontología de Electrodomésticos · <span>OWL + SPARQL</span></p>
+    <div class="logo-badge" data-i18n="header.badge">Web Semántica · UMSS</div>
+    <h1 data-i18n="header.title">MetaBuscador Semántico</h1>
+    <p class="subtitle"><span data-i18n="header.subtitle">Ontología de Electrodomésticos · </span><span data-i18n="header.tech">OWL + SPARQL</span></p>
   </header>
 
   <!-- STATS -->
   <div class="stats-bar" id="statsBar">
     <div class="stat">
       <div class="stat-num" id="statIndividuals">—</div>
-      <div class="stat-label">Individuos</div>
+      <div class="stat-label" data-i18n="stats.individuals">Individuos</div>
     </div>
     <div class="stat">
       <div class="stat-num" id="statClasses">—</div>
-      <div class="stat-label">Clases</div>
+      <div class="stat-label" data-i18n="stats.classes">Clases</div>
     </div>
     <div class="stat">
       <div class="stat-num" id="statProps">—</div>
-      <div class="stat-label">Propiedades</div>
+      <div class="stat-label" data-i18n="stats.properties">Propiedades</div>
     </div>
     <div class="stat">
       <div class="stat-num" id="statTriples">—</div>
-      <div class="stat-label">Triples RDF</div>
+      <div class="stat-label" data-i18n="stats.triples">Triples RDF</div>
     </div>
   </div>
 
   <!-- CARGADOR DE ONTOLOGÍA -->
   <div id="loaderSection" style="text-align:center; padding: 40px 0;">
     <div class="search-section" style="max-width:500px; margin:0 auto;">
-      <p style="color:var(--muted); font-family:'Space Mono',monospace; font-size:12px; margin-bottom:16px; text-transform:uppercase; letter-spacing:1px;">
+      <p style="color:var(--muted); font-family:'Space Mono',monospace; font-size:12px; margin-bottom:16px; text-transform:uppercase; letter-spacing:1px;" data-i18n="loader.title">
         Cargar Ontología OWL
       </p>
       <label for="fileInput"
@@ -52,144 +57,101 @@
         ondragleave="this.style.borderColor='var(--border)'"
         ondrop="handleDrop(event)">
         <span style="font-size:36px; display:block; margin-bottom:12px;">📂</span>
-        <span style="color:var(--text); font-weight:700; display:block; margin-bottom:6px;">
-          Arrastra tu archivo .owx / .owl
+        <span style="color:var(--text); font-weight:700; display:block; margin-bottom:6px;" data-i18n="loader.drag">
+          Arrastra tu archivo .owx / .owl / .rdf
         </span>
-        <span style="color:var(--muted); font-size:12px; font-family:'Space Mono',monospace;">
+        <span style="color:var(--muted); font-size:12px; font-family:'Space Mono',monospace;" data-i18n="loader.click">
           o haz click para seleccionar
         </span>
       </label>
-      <input type="file" id="fileInput" accept=".owl,.owx,.rdf,.xml"
-             style="display:none" onchange="handleFile(this.files[0])"/>
-      <p style="margin-top:16px; color:var(--muted); font-size:11px; font-family:'Space Mono',monospace;">
-        El archivo se procesa localmente en tu navegador · sin DBMS
+      <input type="file" id="fileInput" accept="*/*" style="display:none" onchange="handleFile(this.files[0])"/>
+      <p style="margin-top:16px; color:var(--muted); font-size:11px; font-family:'Space Mono',monospace;" data-i18n="loader.note">
+        El archivo se procesa en el backend · RDFLib + owlready2
       </p>
     </div>
   </div>
 
-  <!-- APP PRINCIPAL (oculto hasta cargar el OWL) -->
+  <!-- APP PRINCIPAL — único bloque, sin duplicados -->
   <div id="appSection" style="display:none;">
 
-    <!-- PESTAÑAS -->
-    <div class="tabs-bar">
-      <button class="tab-btn active" id="tabOwlBtn" onclick="switchTab('owl')">
-        🗂 Búsqueda Local <span class="tab-badge">OWL</span>
-      </button>
-      <button class="tab-btn" id="tabDbpBtn" onclick="switchTab('dbpedia')">
-        🌐 DBpedia <span class="tab-badge" style="background:rgba(0,229,204,0.15);color:var(--accent3);border-color:rgba(0,229,204,0.3)">SPARQL Remoto</span>
-      </button>
+    <!-- BARRA DE BÚSQUEDA UNIFICADA -->
+    <div class="search-section" style="margin-bottom: 16px;">
+      <div class="search-row">
+        <div class="search-input-wrap">
+          <span class="search-icon">🔎</span>
+          <input id="searchInput" type="text" data-placeholder="search.placeholder"
+            placeholder="Busca ej. 'samsung, lavadora, licuadora'... (separado por comas)"/>
+        </div>
+        <button class="btn-search" onclick="buscarUnificado()" data-i18n="search.button">Búsqueda Federada</button>
+      </div>
     </div>
 
-    <!-- ══════════════ PESTAÑA OWL ══════════════ -->
-    <div id="tabOwl">
+    <!-- FILTROS POR CLASE -->
+    <div id="filterBtns" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:20px;"></div>
 
-      <!-- BUSCADOR -->
-      <div class="search-section">
-        <div class="search-row">
-          <div class="search-input-wrap">
-            <span class="search-icon">🔍</span>
-            <input id="searchInput" type="text"
-                   placeholder="Busca: 'gas mabe', 'lavasopa lg', 'nevera samsung'..."/>
-          </div>
-          <button class="btn-search" onclick="doSearch()">Buscar</button>
-        </div>
-        <div class="filters">
-          <span class="filter-label">Clase:</span>
-          <button class="filter-btn active" onclick="setFilter('', this)">Todas</button>
-          <div id="filterBtns"></div>
-        </div>
-      </div>
-
-      <!-- PANEL SPARQL LOCAL -->
-      <div class="sparql-panel">
+    <!-- PANELES SPARQL EN PARALELO -->
+    <div style="display:flex; gap:16px; margin-bottom: 24px;">
+      <div class="sparql-panel" style="flex:1; margin:0;">
         <div class="sparql-header" onclick="toggleSparql()">
           <div class="sparql-header-left">
             <div class="sparql-dot"></div>
-            <span class="sparql-title">Consulta SPARQL activa · Ontología local</span>
+            <span class="sparql-title" data-i18n="sparql.local">Consulta SPARQL · Local</span>
           </div>
-          <span class="sparql-toggle" id="sparqlToggle">▶ ver consulta</span>
+          <span class="sparql-toggle" id="sparqlToggle" data-i18n="sparql.toggle.show">▶ ver</span>
         </div>
-        <div class="sparql-body" id="sparqlBody">
-          <pre id="sparqlDisplay"></pre>
-        </div>
+        <div class="sparql-body" id="sparqlBody"><pre id="sparqlDisplay"></pre></div>
       </div>
 
-      <!-- CONTEO -->
-      <div class="results-header">
-        <div class="results-count" id="resultsCount"></div>
-      </div>
-
-      <!-- RESULTADOS OWL -->
-      <div id="results">
-        <div class="state-msg">
-          <span class="icon">🔎</span>
-          <h3>Listo para buscar</h3>
-          Escribe algo en el buscador o selecciona una clase
-        </div>
-      </div>
-
-      <!-- EXPLORADOR DE ONTOLOGÍA -->
-      <div class="explorer">
-        <div class="explorer-title">Explorador de Ontología</div>
-        <div class="class-grid" id="classGrid"></div>
-      </div>
-
-    </div><!-- /tabOwl -->
-
-    <!-- ══════════════ PESTAÑA DBPEDIA ══════════════ -->
-    <div id="tabDbpedia" style="display:none;">
-
-      <!-- BUSCADOR DBPEDIA -->
-      <div class="search-section">
-        <div class="search-row">
-          <div class="search-input-wrap">
-            <span class="search-icon">🔌</span>
-            <input id="dbpSearchInput" type="text"
-                   placeholder="Busca en DBpedia: 'washing machine', 'refrigerator'..."/>
-          </div>
-          <button class="btn-search" onclick="doDbpSearch()">Buscar en DBpedia</button>
-        </div>
-        <div class="filters">
-          <span class="filter-label">Sugerencias:</span>
-          <button class="filter-btn" onclick="dbpQuick('washing machine')">washing machine</button>
-          <button class="filter-btn" onclick="dbpQuick('refrigerator')">refrigerator</button>
-          <button class="filter-btn" onclick="dbpQuick('microwave oven')">microwave oven</button>
-          <button class="filter-btn" onclick="dbpQuick('air conditioner')">air conditioner</button>
-          <button class="filter-btn" onclick="dbpQuick('vacuum cleaner')">vacuum cleaner</button>
-          <button class="filter-btn" onclick="dbpQuick('television')">television</button>
-        </div>
-      </div>
-
-      <!-- PANEL SPARQL DBPEDIA -->
-      <div class="sparql-panel">
+      <div class="sparql-panel" style="flex:1; margin:0;">
         <div class="sparql-header" onclick="toggleDbpSparql()">
           <div class="sparql-header-left">
             <div class="sparql-dot" style="background:var(--accent3);box-shadow:0 0 6px var(--accent3)"></div>
-            <span class="sparql-title" style="color:var(--accent3)">Consulta SPARQL · DBpedia remoto</span>
+            <span class="sparql-title" style="color:var(--accent3)" data-i18n="sparql.dbpedia">Consulta SPARQL · DBpedia</span>
           </div>
-          <span class="sparql-toggle" id="dbpSparqlToggle">▶ ver consulta</span>
+          <span class="sparql-toggle" id="dbpSparqlToggle" data-i18n="sparql.toggle.show">▶ ver</span>
         </div>
-        <div class="sparql-body" id="dbpSparqlBody">
-          <pre id="dbpSparqlDisplay"></pre>
+        <div class="sparql-body" id="dbpSparqlBody"><pre id="dbpSparqlDisplay"></pre></div>
+      </div>
+    </div>
+
+    <!-- RESULTADOS EN DOS COLUMNAS -->
+    <div style="display:flex; gap:24px; align-items: flex-start;">
+
+      <!-- COLUMNA LOCAL -->
+      <div style="flex:2;">
+        <h2 style="font-size:16px; color:var(--text); margin-bottom:8px;" data-i18n="results.local">🏠 Resultados Locales</h2>
+        <div class="results-count" id="resultsCount"></div>
+        <div id="results">
+          <div class="state-msg">
+            <span class="icon">🔎</span>
+            <h3 data-i18n="results.ready">Listo para buscar</h3>
+            <p data-i18n="results.ready.hint">Escribe algo arriba o selecciona una clase</p>
+          </div>
         </div>
       </div>
 
-      <!-- ESTADO / RESULTADOS DBPEDIA -->
-      <div class="results-header">
+      <!-- COLUMNA DBPEDIA -->
+      <div style="flex:1;">
+        <h2 style="font-size:16px; color:var(--accent3); margin-bottom:8px;" data-i18n="results.dbpedia">🌐 DBpedia</h2>
         <div class="results-count" id="dbpResultsCount"></div>
         <div id="dbpEndpointStatus" style="font-size:11px;font-family:'Space Mono',monospace;color:var(--muted)"></div>
-      </div>
-
-      <div id="dbpResults">
-        <div class="state-msg">
-          <span class="icon">🌐</span>
-          <h3>BC Remota — Wikidata SPARQL</h3>
-          <p>Escribe un electrodoméstico y consulta la base de conocimiento remota</p>
-          <p style="margin-top:8px;font-size:11px;opacity:0.6">Endpoint: query.wikidata.org/sparql · Compatible DBpedia · SPARQL 1.1</p>
+        <div id="dbpResults">
+          <div class="state-msg">
+            <span class="icon">🌐</span>
+            <h3 data-i18n="dbpedia.knowledge.base">Base de Conocimiento Remota</h3>
+            <p data-i18n="dbpedia.results.message">Los resultados de DBpedia aparecerán aquí</p>
+            <p style="margin-top:8px;font-size:11px;opacity:0.6;" data-i18n="dbpedia.endpoint">Endpoint: dbpedia.org/sparql · SPARQLWrapper</p>
+          </div>
         </div>
       </div>
 
-    </div><!-- /tabDbpedia -->
+    </div>
+
+    <!-- EXPLORADOR DE ONTOLOGÍA -->
+    <div class="explorer" style="margin-top:32px;">
+      <div class="explorer-title" data-i18n="explorer.title">Explorador de Ontología</div>
+      <div class="class-grid" id="classGrid"></div>
+    </div>
 
   </div><!-- /appSection -->
 </div><!-- /container -->
@@ -208,11 +170,12 @@
 <!-- FOOTER -->
 <footer>
   <div class="container">
-    <p>MetaBuscador Semántico · <span>Ontología OWL de Electrodomésticos</span> · UMSS Web Semántica 2025</p>
-    <p style="margin-top:6px;">HTML5 · OWL / RDF / SPARQL · Búsqueda Fuzzy (Levenshtein) · sin DBMS · procesamiento local</p>
+    <p><span data-i18n="footer.text">MetaBuscador Semántico · </span><span data-i18n="footer.highlight">Ontología OWL de Electrodomésticos</span> · <span data-i18n="footer.year">UMSS Web Semántica 2025</span></p>
+    <p style="margin-top:6px;" data-i18n="footer.tech">HTML5 · OWL / RDF / SPARQL · Búsqueda Fuzzy · RDFLib + owlready2 · SPARQLWrapper</p>
   </div>
 </footer>
 
+<script src="i18n/translations.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>
