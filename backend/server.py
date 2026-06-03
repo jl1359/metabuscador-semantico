@@ -166,8 +166,46 @@ def buscar_local():
     if lang not in ['es', 'en', 'both']:
         lang = 'es'
 
+    # Diccionario de traducción para hacer la ontología local multilingüe
+    EN_TO_ES = {
+        "refrigerator": "refrigerador", "fridge": "refrigerador",
+        "washing machine": "lavadora", "washer": "lavadora",
+        "television": "televisor", "tv": "televisor",
+        "screen": "pantalla", "display": "pantalla",
+        "air conditioner": "aire acondicionado", "ac": "aire acondicionado",
+        "thermostat": "termostato",
+        "computer": "computadora", "pc": "computadora",
+        "heater": "calefactor",
+        "hair dryer": "secadora de cabello",
+        "oven": "horno", "electric oven": "horno electrico",
+        "coffee maker": "cafetera", "coffee machine": "cafetera",
+        "freezer": "freezer",
+        "toaster": "tostadora",
+        "dishwasher": "lavavajillas",
+        "microwave": "microondas",
+        "owner": "dueño",
+        "dryer": "secadora", "clothes dryer": "secadora de ropa",
+        "fan": "ventilador",
+        "hair straightener": "plancha de cabello",
+        "stove": "cocina", "cooker": "cocina",
+        "sound system": "equipo de sonido", "stereo": "equipo de sonido",
+        "vacuum cleaner": "aspiradora", "vacuum": "aspiradora",
+        "battery": "bateria",
+        "blender": "licuadora",
+        "sensor": "sensor",
+        "brand": "marca"
+    }
+
     # Separar por comas o espacios para búsquedas múltiples simultáneas (AND logic)
-    terminos = [t.strip() for t in re.split(r'[,\s]+', term_raw) if t.strip()]
+    terminos_crudos = [t.strip() for t in re.split(r'[,\s]+', term_raw) if t.strip()]
+    
+    terminos = []
+    for t in terminos_crudos:
+        t_lower = t.lower()
+        if lang == 'en' and t_lower in EN_TO_ES:
+            terminos.append(EN_TO_ES[t_lower])
+        else:
+            terminos.append(t)
 
     sparql_query = """
     PREFIX rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
@@ -183,8 +221,8 @@ def buscar_local():
         sparql_query += "    OPTIONAL { ?ind rdfs:label ?lbl . }\n"
 
     if clase_filtro:
-        # Sanitización básica: solo letras, números, espacios y guiones
-        clase_segura = re.sub(r'[^\w\s\-]', '', clase_filtro)
+        # Sanitización y reemplazo de espacios por guiones bajos para matching con la URI (ej. Motor_Electrico)
+        clase_segura = re.sub(r'[^\w\s\-]', '', clase_filtro).replace(" ", "_")
         sparql_query += f'    FILTER(CONTAINS(LCASE(STR(?clase)), "{clase_segura}"))\n'
 
     if terminos:
@@ -280,14 +318,14 @@ def buscar_dbpedia():
     PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
     PREFIX foaf: <http://xmlns.com/foaf/0.1/>
 
-    SELECT DISTINCT ?recurso ?nombre ?desc ?imagen ?wiki
+    SELECT DISTINCT ?recurso ?nombre ?abs ?desc ?imagen ?wiki
     WHERE {{
       ?recurso rdfs:label ?nombre .
       ?nombre bif:contains "{bif_query}" .
       FILTER ({filtro_lang})
 
-      OPTIONAL {{ ?recurso rdfs:comment ?desc .
-                 FILTER (lang(?desc) = "es" || lang(?desc) = "en") }}
+      OPTIONAL {{ ?recurso dbo:abstract ?abs . FILTER (langMatches(lang(?abs), "es") || langMatches(lang(?abs), "en")) }}
+      OPTIONAL {{ ?recurso rdfs:comment ?desc . FILTER (langMatches(lang(?desc), "es") || langMatches(lang(?desc), "en")) }}
       OPTIONAL {{ ?recurso dbo:thumbnail ?imagen . }}
       OPTIONAL {{ ?recurso foaf:isPrimaryTopicOf ?wiki . }}
     }}
@@ -308,10 +346,15 @@ def buscar_dbpedia():
             if recurso in vistos:
                 continue
             vistos.add(recurso)
+            
+            descripcion = b.get("abs", {}).get("value", "")
+            if not descripcion:
+                descripcion = b.get("desc", {}).get("value", "")
+
             formateados.append({
                 "recurso":     recurso,
                 "nombre":      b["nombre"]["value"],
-                "descripcion": b.get("desc",    {}).get("value", ""),
+                "descripcion": descripcion,
                 "imagen":      b.get("imagen",  {}).get("value", ""),
                 "wikiPage":    b.get("wiki",    {}).get("value", ""),
                 "dbpediaLink": recurso,

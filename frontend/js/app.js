@@ -1,6 +1,6 @@
 /* ══════════════════════════════════════════════
    METABUSCADOR SEMÁNTICO — UMSS Web Semántica
-   app.js v4 — Backend RDFLib + SPARQLWrapper + i18n
+   app.js v5 — Multi-búsqueda simultánea + agrupación visual
    ══════════════════════════════════════════════ */
 
 const API = 'http://localhost:5000';
@@ -246,7 +246,7 @@ function buildSPARQLQuery(term, claseFilter) {
   if (term) {
     const terminos = term.split(',').map(t => t.trim()).filter(t => t);
     if (terminos.length > 1) {
-      q += `  <span class="comment"># Búsqueda múltiple (OR)</span>\n`;
+      q += `  <span class="comment"># Búsqueda simultánea — consultas en paralelo por cada término</span>\n`;
       const filtros = terminos.map(t =>
         `<span class="kw">CONTAINS</span>(<span class="kw">LCASE</span>(<span class="kw">STR</span>(<span class="var">?individuo</span>)), <span class="str">"${escapeHtml(t.toLowerCase())}"</span>)`
       );
@@ -271,11 +271,12 @@ function buildDbpSPARQLQuery(term) {
 <span class="kw">PREFIX</span> dbo:  &lt;http://dbpedia.org/ontology/&gt;
 <span class="kw">PREFIX</span> foaf: &lt;http://xmlns.com/foaf/0.1/&gt;
 
-<span class="kw">SELECT DISTINCT</span> <span class="var">?recurso</span> <span class="var">?nombre</span> <span class="var">?desc</span> <span class="var">?imagen</span> <span class="var">?wiki</span>
+<span class="kw">SELECT DISTINCT</span> <span class="var">?recurso</span> <span class="var">?nombre</span> <span class="var">?desc</span> <span class="var">?abs</span> <span class="var">?imagen</span> <span class="var">?wiki</span>
 <span class="kw">WHERE</span> {
   <span class="var">?recurso</span> rdfs:label <span class="var">?nombre</span> .
   <span class="var">?nombre</span> bif:contains <span class="str">"${bif}"</span> .
   <span class="kw">FILTER</span>(<span class="kw">lang</span>(<span class="var">?nombre</span>) = <span class="str">"en"</span> || <span class="kw">lang</span>(<span class="var">?nombre</span>) = <span class="str">"es"</span>)
+  <span class="kw">OPTIONAL</span> { <span class="var">?recurso</span> dbo:abstract <span class="var">?abs</span> . }
   <span class="kw">OPTIONAL</span> { <span class="var">?recurso</span> rdfs:comment <span class="var">?desc</span> . }
   <span class="kw">OPTIONAL</span> { <span class="var">?recurso</span> dbo:thumbnail <span class="var">?imagen</span> . }
   <span class="kw">OPTIONAL</span> { <span class="var">?recurso</span> foaf:isPrimaryTopicOf <span class="var">?wiki</span> . }
@@ -284,7 +285,7 @@ function buildDbpSPARQLQuery(term) {
 }
 
 // ══════════════════════════════════════════════
-// BÚSQUEDA UNIFICADA — local + DBpedia en paralelo
+// BÚSQUEDA SIMULTÁNEA — multi-búsqueda paralela
 // ══════════════════════════════════════════════
 async function buscarUnificado() {
   const input = document.getElementById('searchInput').value.trim();
@@ -302,32 +303,39 @@ async function buscarUnificado() {
   countEl.innerHTML = '';
   document.getElementById('dbpEndpointStatus').textContent = '';
 
-  // Construir parámetros
-  const params = new URLSearchParams();
-  if (input)         params.set('term',  input);
-  if (currentFilter) params.set('clase', currentFilter);
-  params.set('lang', currentLanguage);  // NUEVO: agregar idioma
+  // ── Dividir por comas para multi-búsqueda simultánea ──
+  const searchTerms = input.split(',').map(s => s.trim()).filter(s => s.length > 0);
+  if (searchTerms.length === 0) searchTerms.push('');
 
   try {
-    // Ambas peticiones en paralelo
-    const [resLocal, resDbp] = await Promise.all([
-      fetch(`${API}/buscar?${params}`,                              { signal: AbortSignal.timeout(15000) }),
-      fetch(`${API}/dbpedia?term=${encodeURIComponent(input)}&lang=${currentLanguage}`, { signal: AbortSignal.timeout(30000) })
-    ]);
+    // Lanzar TODAS las búsquedas en paralelo: (local + DBpedia) × cada término
+    const groupPromises = searchTerms.map(async (term) => {
+      const params = new URLSearchParams();
+      if (term) params.set('term', term);
+      if (currentFilter) params.set('clase', currentFilter);
+      params.set('lang', currentLanguage);
 
-    const dataLocal = await resLocal.json();
-    const dataDbp   = await resDbp.json();
+      const localP = fetch(`${API}/buscar?${params}`, { signal: AbortSignal.timeout(15000) }).then(r => r.json());
+      const dbpP   = term
+        ? fetch(`${API}/dbpedia?term=${encodeURIComponent(term)}&lang=${currentLanguage}`, { signal: AbortSignal.timeout(30000) }).then(r => r.json())
+        : Promise.resolve({ ok: true, resultados: [] });
 
-    let localRes = [];
-    let dbpRes = [];
-    
-    if (dataLocal.ok) localRes = dataLocal.resultados || [];
-    if (dataDbp.ok) {
-      dbpRes = dataDbp.resultados || [];
+      const [dataLocal, dataDbp] = await Promise.all([localP, dbpP]);
+
+      return {
+        term,
+        localRes: dataLocal.ok ? (dataLocal.resultados || []) : [],
+        dbpRes:   dataDbp.ok   ? (dataDbp.resultados   || []) : []
+      };
+    });
+
+    const groups = await Promise.all(groupPromises);
+
+    if (groups.some(g => g.dbpRes.length > 0)) {
       document.getElementById('dbpEndpointStatus').textContent = t('dbpedia.status') || 'Endpoint: dbpedia.org/sparql';
     }
-    
-    renderUnifiedResults(localRes, dbpRes, input);
+
+    renderGroupedResults(groups, searchTerms.length > 1);
 
   } catch(error) {
     container.innerHTML = `<div class="state-msg" style="grid-column: 1 / -1;"><span class="icon">⚠️</span><h3>${t('error.network') || 'Error de red'}</h3><p>${escapeHtml(error.message)}</p></div>`;
@@ -369,7 +377,7 @@ function searchByClass(cls) {
 }
 
 // ══════════════════════════════════════════════
-// RENDER RESULTADOS UNIFICADOS
+// CONSTANTES Y HELPERS DE RENDERIZADO
 // ══════════════════════════════════════════════
 const KEY_PROPS = [
   'consumo potencia','capacidad litros','capacidad lavado','capacidad refrigeracion',
@@ -381,32 +389,25 @@ const KEY_PROPS = [
   'fabricado por','tiene componente','pais origen marca','ano creacion marca'
 ];
 
-function renderUnifiedResults(localRes, dbpRes, term) {
-  const container = document.getElementById('unifiedResults');
-  const countEl   = document.getElementById('unifiedResultsCount');
-  
-  const total = localRes.length + dbpRes.length;
-  
-  if (total === 0) {
-    countEl.innerHTML = '';
-    container.innerHTML = `
-      <div class="state-msg" style="grid-column: 1 / -1;">
-        <span class="icon">🔍</span>
-        <h3>${t('results.empty.local') || 'Sin resultados'}</h3>
-        <p>${t('results.empty') || 'No se encontraron coincidencias para'} "<strong>${escapeHtml(term)}</strong>"</p>
-      </div>`;
-    return;
-  }
-  
-  countEl.innerHTML = `<span>${total}</span> ${total !== 1 ? t('results.count.plural') || 'resultados' : t('results.count') || 'resultado'}`;
-  
-  const tokens = term ? term.split(/[\\s,]+/).filter(t => t.length >= 2) : [];
-  
-  // Local cards generator
-  const localCardsHtml = localRes.slice(0, 60).map(ind => {
+function iconForName(nombre) {
+  const n = (nombre || '').toLowerCase();
+  if (n.includes('refriger') || n.includes('fridge'))   return '🧊';
+  if (n.includes('wash')     || n.includes('laundry'))  return '🫧';
+  if (n.includes('televisi') || n.includes('tv'))       return '📺';
+  if (n.includes('computer') || n.includes('laptop'))   return '💻';
+  if (n.includes('microwave')|| n.includes('oven'))     return '📡';
+  if (n.includes('vacuum'))                             return '🌀';
+  if (n.includes('air')      || n.includes('condition'))return '❄️';
+  if (n.includes('coffee')   || n.includes('cafe'))     return '☕';
+  return '🔌';
+}
+
+// ── Genera HTML de cards locales ──
+function generateLocalCardsHtml(items, tokens) {
+  return items.map(ind => {
     const props = ind.propiedades || {};
     const shownProps = KEY_PROPS.filter(p => props[p] !== undefined).slice(0, 4);
-    
+
     const propsHtml = shownProps.map(p => {
       let val = props[p], valClass = '';
       if (val === 'true')  { val = '✓ Sí'; valClass = 'bool-true'; }
@@ -416,43 +417,47 @@ function renderUnifiedResults(localRes, dbpRes, term) {
         <span class="prop-val ${valClass}">${escapeHtml(String(val))}</span>
       </div>`;
     }).join('');
-    
+
     const nombre = highlightTokens(escapeHtml(ind.nombre), tokens);
-    
+
     return `
       <div class="result-card" onclick='showDetail(${JSON.stringify(ind).replace(/'/g, "&#39;")})'>
-        <div style="position:absolute; top:12px; right:12px; font-size:10px; padding:2px 8px; border-radius:10px; background:rgba(124,106,247,0.15); color:var(--accent); border:1px solid rgba(124,106,247,0.3); font-family:'Space Mono',monospace;">🏠 Local</div>
-        <div class="card-top" style="margin-right: 60px;">
+        <div class="card-top">
           <div class="card-name">${nombre}</div>
-          <div class="card-class">${escapeHtml(ind.clase)}</div>
+          <div class="card-badges">
+            <span class="source-badge source-local">🏠 Local</span>
+            <div class="card-class">${escapeHtml(ind.clase)}</div>
+          </div>
         </div>
         ${propsHtml
           ? `<div class="card-props">${propsHtml}</div>`
-          : '<p style="color:var(--muted);font-size:12px;font-family:Space Mono,monospace">Sin propiedades registradas</p>'}
+          : '<p style="color:var(--muted);font-size:12px;font-family:Space Mono,monospace">' + (t('modal.no.properties') || 'Sin propiedades registradas') + '</p>'}
       </div>`;
-  });
+  }).join('');
+}
 
-  // DBpedia helper
-  function iconForName(nombre) {
-    const n = (nombre || '').toLowerCase();
-    if (n.includes('refriger') || n.includes('fridge'))   return '🧊';
-    if (n.includes('wash')     || n.includes('laundry'))  return '🫧';
-    if (n.includes('televisi') || n.includes('tv'))       return '📺';
-    if (n.includes('computer') || n.includes('laptop'))   return '💻';
-    if (n.includes('microwave')|| n.includes('oven'))     return '📡';
-    if (n.includes('vacuum'))                             return '🌀';
-    if (n.includes('air')      || n.includes('condition'))return '❄️';
-    if (n.includes('coffee')   || n.includes('cafe'))     return '☕';
-    return '🔌';
-  }
-
-  // DBpedia cards generator
-  const dbpCardsHtml = dbpRes.map(r => {
+// ── Genera HTML de cards DBpedia ──
+function generateDbpCardsHtml(items) {
+  return items.map((r, i) => {
     const icon = iconForName(r.nombre);
-    const desc = r.descripcion
-      ? (r.descripcion.length > 120 ? r.descripcion.slice(0, 120) + '...' : r.descripcion)
-      : `<em style="opacity:0.5">${t('dbpedia.no.description') || 'Sin descripción'}</em>`;
-      
+    
+    // We'll use a unique ID to update the description later if we fetch it from Wikipedia
+    const descId = `dbp-desc-${i}-${Date.now()}`;
+    let descHtml = '';
+    
+    if (r.descripcion) {
+      const text = r.descripcion.length > 120 ? r.descripcion.slice(0, 120) + '...' : r.descripcion;
+      descHtml = `<p class="dbp-abstract" id="${descId}">${text}</p>`;
+    } else if (r.wikiPage) {
+      // Trigger Wikipedia fallback
+      descHtml = `<p class="dbp-abstract" id="${descId}">
+                    <span style="opacity:0.6; font-size:11px;">${t('dbpedia.loading.desc') || 'Cargando descripción...'}</span>
+                  </p>`;
+      fetchWikipediaDesc(r.wikiPage, descId);
+    } else {
+      descHtml = `<p class="dbp-abstract" id="${descId}"><em style="opacity:0.5">${t('dbpedia.no.description') || 'Sin descripción'}</em></p>`;
+    }
+
     const imgHtml = r.imagen
       ? `<img class="dbp-img" style="width:60px;height:60px;" src="${r.imagen}" alt="${escapeHtml(r.nombre)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
       : '';
@@ -460,35 +465,112 @@ function renderUnifiedResults(localRes, dbpRes, term) {
 
     return `
       <div class="dbp-card">
-        <div style="position:absolute; top:12px; right:12px; font-size:10px; padding:2px 8px; border-radius:10px; background:rgba(0,229,204,0.1); color:var(--accent3); border:1px solid rgba(0,229,204,0.3); font-family:'Space Mono',monospace;">🌐 DBpedia</div>
-        <div class="dbp-card-top" style="margin-right: 70px;">
+        <div class="dbp-card-header">
+          <span class="source-badge source-dbpedia">🌐 DBpedia</span>
+        </div>
+        <div class="dbp-card-top">
           ${imgHtml}${placeholderHtml}
           <div class="dbp-info">
-            <div class="dbp-name" style="font-size:15px;">${escapeHtml(r.nombre)}</div>
-            <p class="dbp-abstract" style="font-size:12px;">${desc}</p>
+            <div class="dbp-name">${escapeHtml(r.nombre)}</div>
+            ${descHtml}
           </div>
         </div>
-        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;">
-          <button class="dbp-link" style="background:var(--accent); color:#fff; border:none; cursor:pointer; padding:6px 12px; border-radius:8px;"
+        <div class="dbp-actions">
+          <button class="dbp-link dbp-save-btn"
             onclick="guardarEnOntologia(event, '${escapeAttr(r.nombre)}', '${escapeAttr(r.recurso)}')">
             ${t('dbpedia.button.save') || 'Guardar'}
           </button>
           ${r.wikiPage ? `<a class="dbp-link" href="${r.wikiPage}" target="_blank" rel="noopener">Wikipedia</a>` : ''}
-          ${r.dbpediaLink ? `<a class="dbp-link" style="border-color:rgba(124,106,247,0.3);color:var(--accent)" href="${r.dbpediaLink}" target="_blank" rel="noopener">Recurso RDF</a>` : ''}
+          ${r.dbpediaLink ? `<a class="dbp-link dbp-rdf-link" href="${r.dbpediaLink}" target="_blank" rel="noopener">DBpedia</a>` : ''}
         </div>
       </div>`;
-  });
+  }).join('');
+}
 
-  // Mezclar resultados
-  const combined = [...localCardsHtml, ...dbpCardsHtml];
-  container.innerHTML = combined.join('');
-  
-  if (localRes.length > 60) {
-    container.innerHTML += `
-      <div class="state-msg" style="grid-column: 1 / -1; padding:20px;">
-        <p>Mostrando 60 de ${localRes.length} locales. Refina tu búsqueda.</p>
-      </div>`;
+// ── Fallback a Wikipedia API si DBpedia no tiene abstract ──
+async function fetchWikipediaDesc(wikiUrl, elementId) {
+  try {
+    const title = wikiUrl.split('/').pop();
+    const lang = wikiUrl.includes('es.wikipedia') ? 'es' : 'en';
+    const res = await fetch(`https://${lang}.wikipedia.org/api/rest_v1/page/summary/${title}`);
+    const data = await res.json();
+    const el = document.getElementById(elementId);
+    if (el && data.extract) {
+      const text = data.extract.length > 120 ? data.extract.slice(0, 120) + '...' : data.extract;
+      el.innerHTML = text;
+    } else if (el) {
+      el.innerHTML = `<em style="opacity:0.5">${t('dbpedia.no.description') || 'Sin descripción'}</em>`;
+    }
+  } catch (e) {
+    const el = document.getElementById(elementId);
+    if (el) el.innerHTML = `<em style="opacity:0.5">${t('dbpedia.no.description') || 'Sin descripción'}</em>`;
   }
+}
+
+// ══════════════════════════════════════════════
+// RENDER RESULTADOS AGRUPADOS (multi-búsqueda)
+// ══════════════════════════════════════════════
+function renderGroupedResults(groups, isMultiSearch) {
+  const container = document.getElementById('unifiedResults');
+  const countEl   = document.getElementById('unifiedResultsCount');
+
+  const totalResults = groups.reduce((sum, g) => sum + g.localRes.length + g.dbpRes.length, 0);
+
+  if (totalResults === 0) {
+    const termDisplay = groups.map(g => g.term).filter(x => x).join(', ');
+    countEl.innerHTML = '';
+    container.innerHTML = `
+      <div class="state-msg" style="grid-column: 1 / -1;">
+        <span class="icon">🔍</span>
+        <h3>${t('results.empty.local') || 'Sin resultados'}</h3>
+        <p>${t('results.empty') || 'No se encontraron coincidencias para'} "<strong>${escapeHtml(termDisplay)}</strong>"</p>
+      </div>`;
+    return;
+  }
+
+  countEl.innerHTML = `<span>${totalResults}</span> ${totalResults !== 1 ? t('results.count.plural') || 'resultados' : t('results.count') || 'resultado'}`;
+
+  let html = '';
+
+  for (const group of groups) {
+    const groupTotal = group.localRes.length + group.dbpRes.length;
+    const tokens = group.term ? group.term.split(/[\s]+/).filter(tok => tok.length >= 2) : [];
+
+    // ── Encabezado del grupo (solo en multi-búsqueda) ──
+    if (isMultiSearch) {
+      const statusClass = groupTotal > 0 ? 'has-results' : 'no-results';
+      html += `<div class="search-group-header ${statusClass}">
+        <div class="group-title">
+          <span class="group-icon">${groupTotal > 0 ? '🔎' : '🔍'}</span>
+          <span class="group-term">"${escapeHtml(group.term)}"</span>
+          <span class="group-count">${groupTotal} ${groupTotal !== 1 ? t('results.count.plural') || 'resultados' : t('results.count') || 'resultado'}</span>
+          ${group.localRes.length > 0 ? `<span class="group-badge local-badge">🏠 ${group.localRes.length} local</span>` : ''}
+          ${group.dbpRes.length > 0 ? `<span class="group-badge dbp-badge">🌐 ${group.dbpRes.length} DBpedia</span>` : ''}
+        </div>
+      </div>`;
+
+      if (groupTotal === 0) {
+        html += `<div class="state-msg" style="grid-column: 1 / -1; padding: 24px;">
+          <p style="color:var(--muted); font-size:13px;">${t('results.empty') || 'Sin resultados'}</p>
+        </div>`;
+        continue;
+      }
+    }
+
+    // ── Cards locales ──
+    html += generateLocalCardsHtml(group.localRes.slice(0, 60), tokens);
+
+    // ── Cards DBpedia ──
+    html += generateDbpCardsHtml(group.dbpRes);
+
+    if (group.localRes.length > 60) {
+      html += `<div class="state-msg" style="grid-column: 1 / -1; padding:20px;">
+        <p>${t('results.showing') || 'Mostrando'} 60 ${t('results.of') || 'de'} ${group.localRes.length}. ${t('results.refine') || 'Refina tu búsqueda.'}</p>
+      </div>`;
+    }
+  }
+
+  container.innerHTML = html;
 }
 
 // ══════════════════════════════════════════════
