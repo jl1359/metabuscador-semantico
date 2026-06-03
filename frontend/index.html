@@ -114,37 +114,21 @@
       </div>
     </div>
 
-    <!-- RESULTADOS EN DOS COLUMNAS -->
-    <div style="display:flex; gap:24px; align-items: flex-start;">
-
-      <!-- COLUMNA LOCAL -->
-      <div style="flex:2;">
-        <h2 style="font-size:16px; color:var(--text); margin-bottom:8px;" data-i18n="results.local">🏠 Resultados Locales</h2>
-        <div class="results-count" id="resultsCount"></div>
-        <div id="results">
-          <div class="state-msg">
-            <span class="icon">🔎</span>
-            <h3 data-i18n="results.ready">Listo para buscar</h3>
-            <p data-i18n="results.ready.hint">Escribe algo arriba o selecciona una clase</p>
-          </div>
+    <!-- RESULTADOS UNIFICADOS -->
+    <div style="margin-top: 24px;">
+      <div class="results-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h2 style="font-size:18px; color:var(--text);" data-i18n="results.unified">🎯 Resultados de Búsqueda</h2>
+        <div class="results-count" id="unifiedResultsCount"></div>
+      </div>
+      <div id="dbpEndpointStatus" style="font-size:11px;font-family:'Space Mono',monospace;color:var(--muted); margin-bottom:16px; text-align:right;"></div>
+      
+      <div id="unifiedResults" class="results-grid" style="display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));">
+        <div class="state-msg" style="grid-column: 1 / -1;">
+          <span class="icon">🔎</span>
+          <h3 data-i18n="results.ready">Listo para buscar</h3>
+          <p data-i18n="results.ready.hint">Escribe algo arriba o selecciona una clase</p>
         </div>
       </div>
-
-      <!-- COLUMNA DBPEDIA -->
-      <div style="flex:1;">
-        <h2 style="font-size:16px; color:var(--accent3); margin-bottom:8px;" data-i18n="results.dbpedia">🌐 DBpedia</h2>
-        <div class="results-count" id="dbpResultsCount"></div>
-        <div id="dbpEndpointStatus" style="font-size:11px;font-family:'Space Mono',monospace;color:var(--muted)"></div>
-        <div id="dbpResults">
-          <div class="state-msg">
-            <span class="icon">🌐</span>
-            <h3 data-i18n="dbpedia.knowledge.base">Base de Conocimiento Remota</h3>
-            <p data-i18n="dbpedia.results.message">Los resultados de DBpedia aparecerán aquí</p>
-            <p style="margin-top:8px;font-size:11px;opacity:0.6;" data-i18n="dbpedia.endpoint">Endpoint: dbpedia.org/sparql · SPARQLWrapper</p>
-          </div>
-        </div>
-      </div>
-
     </div>
 
     <!-- EXPLORADOR DE ONTOLOGÍA -->

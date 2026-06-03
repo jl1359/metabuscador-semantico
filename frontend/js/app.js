@@ -260,27 +260,25 @@ function buildSPARQLQuery(term, claseFilter) {
 }
 
 function buildDbpSPARQLQuery(term) {
-  const terminos = term.split(',').map(t => t.trim()).filter(t => t);
-  const filtros  = terminos.map(t =>
-    `regex(LCASE(STR(<span class="var">?nombre</span>)), <span class="str">"${escapeHtml(t.toLowerCase())}"</span>)`
-  ).join(' || ');
+  const terminos = term.split(/[,\s]+/).map(t => t.trim()).filter(t => t);
+  const bif  = terminos.map(t => `'${escapeHtml(t)}'`).join(' AND ');
 
   return `<span class="comment"># BC Remota — DBpedia SPARQL</span>
 <span class="comment"># Endpoint: https://dbpedia.org/sparql</span>
+<span class="comment"># Búsqueda de texto completo con Virtuoso bif:contains</span>
 
-<span class="kw">PREFIX</span> dbo:  &lt;http://dbpedia.org/ontology/&gt;
 <span class="kw">PREFIX</span> rdfs: &lt;http://www.w3.org/2000/01/rdf-schema#&gt;
+<span class="kw">PREFIX</span> dbo:  &lt;http://dbpedia.org/ontology/&gt;
 <span class="kw">PREFIX</span> foaf: &lt;http://xmlns.com/foaf/0.1/&gt;
 
-<span class="kw">SELECT DISTINCT</span> <span class="var">?recurso</span> <span class="var">?nombre</span> <span class="var">?descripcion</span> <span class="var">?imagen</span> <span class="var">?wikiPage</span>
+<span class="kw">SELECT DISTINCT</span> <span class="var">?recurso</span> <span class="var">?nombre</span> <span class="var">?desc</span> <span class="var">?imagen</span> <span class="var">?wiki</span>
 <span class="kw">WHERE</span> {
-  <span class="var">?recurso</span> a dbo:Device .
   <span class="var">?recurso</span> rdfs:label <span class="var">?nombre</span> .
-  <span class="kw">FILTER</span>(LANG(<span class="var">?nombre</span>) = <span class="str">"en"</span> || LANG(<span class="var">?nombre</span>) = <span class="str">"es"</span>)
-  <span class="kw">FILTER</span>( ${filtros} )
-  <span class="kw">OPTIONAL</span> { <span class="var">?recurso</span> rdfs:comment <span class="var">?descripcion</span> . }
+  <span class="var">?nombre</span> bif:contains <span class="str">"${bif}"</span> .
+  <span class="kw">FILTER</span>(<span class="kw">lang</span>(<span class="var">?nombre</span>) = <span class="str">"en"</span> || <span class="kw">lang</span>(<span class="var">?nombre</span>) = <span class="str">"es"</span>)
+  <span class="kw">OPTIONAL</span> { <span class="var">?recurso</span> rdfs:comment <span class="var">?desc</span> . }
   <span class="kw">OPTIONAL</span> { <span class="var">?recurso</span> dbo:thumbnail <span class="var">?imagen</span> . }
-  <span class="kw">OPTIONAL</span> { <span class="var">?recurso</span> foaf:isPrimaryTopicOf <span class="var">?wikiPage</span> . }
+  <span class="kw">OPTIONAL</span> { <span class="var">?recurso</span> foaf:isPrimaryTopicOf <span class="var">?wiki</span> . }
 }
 <span class="kw">LIMIT</span> 15`;
 }
@@ -296,16 +294,12 @@ async function buscarUnificado() {
   document.getElementById('sparqlDisplay').innerHTML    = buildSPARQLQuery(input, currentFilter);
   document.getElementById('dbpSparqlDisplay').innerHTML = buildDbpSPARQLQuery(input || 'lavadora');
 
-  const containerLocal = document.getElementById('results');
-  const containerDbp   = document.getElementById('dbpResults');
-  const countLocal     = document.getElementById('resultsCount');
-  const countDbp       = document.getElementById('dbpResultsCount');
+  const container = document.getElementById('unifiedResults');
+  const countEl   = document.getElementById('unifiedResultsCount');
 
-  // Indicadores de carga en ambas columnas
-  containerLocal.innerHTML = `<div style="text-align:center; padding:40px;"><div class="spinner"></div><p style="margin-top:15px; color:var(--accent);">${t('search.loading.local')}</p></div>`;
-  containerDbp.innerHTML   = `<div style="text-align:center; padding:40px;"><div class="spinner"></div><p style="margin-top:15px; color:var(--accent3);">${t('search.loading.dbpedia')}</p></div>`;
-  countLocal.innerHTML = '';
-  countDbp.innerHTML   = '';
+  // Indicador de carga
+  container.innerHTML = `<div style="grid-column: 1 / -1; text-align:center; padding:60px;"><div class="spinner"></div><p style="margin-top:15px; color:var(--accent);">${t('search.loading.local') || 'Buscando...'}</p></div>`;
+  countEl.innerHTML = '';
   document.getElementById('dbpEndpointStatus').textContent = '';
 
   // Construir parámetros
@@ -324,24 +318,19 @@ async function buscarUnificado() {
     const dataLocal = await resLocal.json();
     const dataDbp   = await resDbp.json();
 
-    // Renderizar resultados locales
-    if (dataLocal.ok) {
-      renderResultsLocal(dataLocal.resultados, input);
-    } else {
-      containerLocal.innerHTML = `<div class="state-msg"><span class="icon">⚠️</span><h3>${t('error.title')}</h3><p>${escapeHtml(dataLocal.error)}</p></div>`;
-    }
-
-    // Renderizar resultados DBpedia
+    let localRes = [];
+    let dbpRes = [];
+    
+    if (dataLocal.ok) localRes = dataLocal.resultados || [];
     if (dataDbp.ok) {
-      renderResultsDbpedia(dataDbp.resultados, input);
-      document.getElementById('dbpEndpointStatus').textContent = t('dbpedia.status');
-    } else {
-      containerDbp.innerHTML = `<div class="state-msg"><span class="icon">⚠️</span><h3>${t('error.dbpedia.title')}</h3><p>${escapeHtml(dataDbp.error)}</p></div>`;
+      dbpRes = dataDbp.resultados || [];
+      document.getElementById('dbpEndpointStatus').textContent = t('dbpedia.status') || 'Endpoint: dbpedia.org/sparql';
     }
+    
+    renderUnifiedResults(localRes, dbpRes, input);
 
   } catch(error) {
-    containerLocal.innerHTML = `<div class="state-msg"><span class="icon">⚠️</span><h3>${t('error.network')}</h3><p>${escapeHtml(error.message)}</p></div>`;
-    containerDbp.innerHTML   = `<div class="state-msg"><span class="icon">⚠️</span><h3>${t('error.title')}</h3><p>${t('error.backend')}</p></div>`;
+    container.innerHTML = `<div class="state-msg" style="grid-column: 1 / -1;"><span class="icon">⚠️</span><h3>${t('error.network') || 'Error de red'}</h3><p>${escapeHtml(error.message)}</p></div>`;
   }
 }
 
@@ -380,40 +369,44 @@ function searchByClass(cls) {
 }
 
 // ══════════════════════════════════════════════
-// RENDER RESULTADOS LOCALES
+// RENDER RESULTADOS UNIFICADOS
 // ══════════════════════════════════════════════
 const KEY_PROPS = [
-  'consumo_potencia','capacidad_litros','capacidad_lavado','capacidad_refrigeracion',
-  'eficiencia_energetica','tamano_pantalla','voltaje_aparato','peso_aparato',
-  'numero_hornillas','capacidad_tazas','capacidad_carga','rpm_centrifugado',
-  'potencia_microondas','area_cobertura','numero_velocidades','memoria_ram',
-  'almacenamiento_interno','capacidad_congelacion','vida_util_estimada',
-  'tecnologia_inverter','tv_smart','portable','conectividad_red'
+  'consumo potencia','capacidad litros','capacidad lavado','capacidad refrigeracion',
+  'eficiencia energetica','tamano pantalla','voltaje aparato','peso aparato',
+  'numero hornillas','capacidad tazas','capacidad carga','rpm centrifugado',
+  'potencia microondas','area cobertura','numero velocidades','memoria ram',
+  'almacenamiento interno','capacidad congelacion','vida util estimada',
+  'tecnologia inverter','tv smart','portable','conectividad red',
+  'fabricado por','tiene componente','pais origen marca','ano creacion marca'
 ];
 
-function renderResultsLocal(resultados, term) {
-  const container = document.getElementById('results');
-  const countEl   = document.getElementById('resultsCount');
-
-  if (!resultados || resultados.length === 0) {
+function renderUnifiedResults(localRes, dbpRes, term) {
+  const container = document.getElementById('unifiedResults');
+  const countEl   = document.getElementById('unifiedResultsCount');
+  
+  const total = localRes.length + dbpRes.length;
+  
+  if (total === 0) {
     countEl.innerHTML = '';
     container.innerHTML = `
-      <div class="state-msg">
+      <div class="state-msg" style="grid-column: 1 / -1;">
         <span class="icon">🔍</span>
-        <h3>${t('results.empty.local')}</h3>
-        <p>${t('results.empty')} "<strong>${escapeHtml(term)}</strong>"</p>
+        <h3>${t('results.empty.local') || 'Sin resultados'}</h3>
+        <p>${t('results.empty') || 'No se encontraron coincidencias para'} "<strong>${escapeHtml(term)}</strong>"</p>
       </div>`;
     return;
   }
-
-  countEl.innerHTML = `<span>${resultados.length}</span> ${resultados.length !== 1 ? t('results.count.plural') : t('results.count')} · <span style="color:var(--accent3)">${t('results.source.local')}</span>`;
-
-  const tokens = term ? term.split(/[\s,]+/).filter(t => t.length >= 2) : [];
-
-  container.innerHTML = resultados.slice(0, 60).map(ind => {
-    const props      = ind.propiedades || {};
+  
+  countEl.innerHTML = `<span>${total}</span> ${total !== 1 ? t('results.count.plural') || 'resultados' : t('results.count') || 'resultado'}`;
+  
+  const tokens = term ? term.split(/[\\s,]+/).filter(t => t.length >= 2) : [];
+  
+  // Local cards generator
+  const localCardsHtml = localRes.slice(0, 60).map(ind => {
+    const props = ind.propiedades || {};
     const shownProps = KEY_PROPS.filter(p => props[p] !== undefined).slice(0, 4);
-
+    
     const propsHtml = shownProps.map(p => {
       let val = props[p], valClass = '';
       if (val === 'true')  { val = '✓ Sí'; valClass = 'bool-true'; }
@@ -423,12 +416,13 @@ function renderResultsLocal(resultados, term) {
         <span class="prop-val ${valClass}">${escapeHtml(String(val))}</span>
       </div>`;
     }).join('');
-
+    
     const nombre = highlightTokens(escapeHtml(ind.nombre), tokens);
-
+    
     return `
-      <div class="result-card" onclick="showDetail(${JSON.stringify(ind)})">
-        <div class="card-top">
+      <div class="result-card" onclick='showDetail(${JSON.stringify(ind).replace(/'/g, "&#39;")})'>
+        <div style="position:absolute; top:12px; right:12px; font-size:10px; padding:2px 8px; border-radius:10px; background:rgba(124,106,247,0.15); color:var(--accent); border:1px solid rgba(124,106,247,0.3); font-family:'Space Mono',monospace;">🏠 Local</div>
+        <div class="card-top" style="margin-right: 60px;">
           <div class="card-name">${nombre}</div>
           <div class="card-class">${escapeHtml(ind.clase)}</div>
         </div>
@@ -436,36 +430,9 @@ function renderResultsLocal(resultados, term) {
           ? `<div class="card-props">${propsHtml}</div>`
           : '<p style="color:var(--muted);font-size:12px;font-family:Space Mono,monospace">Sin propiedades registradas</p>'}
       </div>`;
-  }).join('');
+  });
 
-  if (resultados.length > 60) {
-    container.innerHTML += `
-      <div class="state-msg" style="padding:20px">
-        <p>Mostrando 60 de ${resultados.length}. Refina tu búsqueda.</p>
-      </div>`;
-  }
-}
-
-// ══════════════════════════════════════════════
-// RENDER RESULTADOS DBPEDIA
-// ══════════════════════════════════════════════
-function renderResultsDbpedia(resultados, term) {
-  const container = document.getElementById('dbpResults');
-  const countEl   = document.getElementById('dbpResultsCount');
-
-  if (!resultados || resultados.length === 0) {
-    countEl.innerHTML = '';
-    container.innerHTML = `
-      <div class="state-msg">
-        <span class="icon">🔍</span>
-        <h3>${t('results.empty.dbpedia')}</h3>
-        <p>${t('results.empty.dbpedia.hint')}</p>
-      </div>`;
-    return;
-  }
-
-  countEl.innerHTML = `<span>${resultados.length}</span> ${resultados.length !== 1 ? t('results.count.plural') : t('results.count')} · <span style="color:var(--accent3)">${t('results.source.dbpedia')}</span>`;
-
+  // DBpedia helper
   function iconForName(nombre) {
     const n = (nombre || '').toLowerCase();
     if (n.includes('refriger') || n.includes('fridge'))   return '🧊';
@@ -479,38 +446,49 @@ function renderResultsDbpedia(resultados, term) {
     return '🔌';
   }
 
-  container.innerHTML = resultados.map(r => {
+  // DBpedia cards generator
+  const dbpCardsHtml = dbpRes.map(r => {
     const icon = iconForName(r.nombre);
     const desc = r.descripcion
-      ? (r.descripcion.length > 280 ? r.descripcion.slice(0, 280) + '...' : r.descripcion)
-      : `<em style="opacity:0.5">${t('dbpedia.no.description')}</em>`;
-
+      ? (r.descripcion.length > 120 ? r.descripcion.slice(0, 120) + '...' : r.descripcion)
+      : `<em style="opacity:0.5">${t('dbpedia.no.description') || 'Sin descripción'}</em>`;
+      
     const imgHtml = r.imagen
-      ? `<img class="dbp-img" src="${r.imagen}" alt="${escapeHtml(r.nombre)}"
-             onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+      ? `<img class="dbp-img" style="width:60px;height:60px;" src="${r.imagen}" alt="${escapeHtml(r.nombre)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
       : '';
-    const placeholderHtml = `<div class="dbp-img-placeholder" ${r.imagen ? 'style="display:none"' : ''}>${icon}</div>`;
+    const placeholderHtml = `<div class="dbp-img-placeholder" style="width:60px;height:60px;font-size:24px;" ${r.imagen ? 'style="display:none"' : ''}>${icon}</div>`;
 
     return `
       <div class="dbp-card">
-        <div class="dbp-card-top">
+        <div style="position:absolute; top:12px; right:12px; font-size:10px; padding:2px 8px; border-radius:10px; background:rgba(0,229,204,0.1); color:var(--accent3); border:1px solid rgba(0,229,204,0.3); font-family:'Space Mono',monospace;">🌐 DBpedia</div>
+        <div class="dbp-card-top" style="margin-right: 70px;">
           ${imgHtml}${placeholderHtml}
           <div class="dbp-info">
-            <div class="dbp-name">${escapeHtml(r.nombre)}</div>
-            <span class="dbp-type">${t('dbpedia.type')}</span>
-            <p class="dbp-abstract">${desc}</p>
+            <div class="dbp-name" style="font-size:15px;">${escapeHtml(r.nombre)}</div>
+            <p class="dbp-abstract" style="font-size:12px;">${desc}</p>
           </div>
         </div>
         <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;">
-          ${r.wikiPage    ? `<a class="dbp-link" href="${r.wikiPage}" target="_blank" rel="noopener">${t('dbpedia.link.wikipedia')}</a>` : ''}
-          ${r.dbpediaLink ? `<a class="dbp-link" style="border-color:rgba(124,106,247,0.3);color:var(--accent)" href="${r.dbpediaLink}" target="_blank" rel="noopener">${t('dbpedia.link.resource')}</a>` : ''}
-          <button class="dbp-link" style="background:var(--accent); color:#fff; border:none; cursor:pointer;"
+          <button class="dbp-link" style="background:var(--accent); color:#fff; border:none; cursor:pointer; padding:6px 12px; border-radius:8px;"
             onclick="guardarEnOntologia(event, '${escapeAttr(r.nombre)}', '${escapeAttr(r.recurso)}')">
-            ${t('dbpedia.button.save')}
+            ${t('dbpedia.button.save') || 'Guardar'}
           </button>
+          ${r.wikiPage ? `<a class="dbp-link" href="${r.wikiPage}" target="_blank" rel="noopener">Wikipedia</a>` : ''}
+          ${r.dbpediaLink ? `<a class="dbp-link" style="border-color:rgba(124,106,247,0.3);color:var(--accent)" href="${r.dbpediaLink}" target="_blank" rel="noopener">Recurso RDF</a>` : ''}
         </div>
       </div>`;
-  }).join('');
+  });
+
+  // Mezclar resultados
+  const combined = [...localCardsHtml, ...dbpCardsHtml];
+  container.innerHTML = combined.join('');
+  
+  if (localRes.length > 60) {
+    container.innerHTML += `
+      <div class="state-msg" style="grid-column: 1 / -1; padding:20px;">
+        <p>Mostrando 60 de ${localRes.length} locales. Refina tu búsqueda.</p>
+      </div>`;
+  }
 }
 
 // ══════════════════════════════════════════════

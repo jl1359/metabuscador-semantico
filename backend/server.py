@@ -37,21 +37,25 @@ def construir_cache():
         if not clase_nombre:
             continue
         props = {}
-        for prop in onto.data_properties():
-            vals = list(prop[ind])
-            if vals:
-                props[prop.name] = str(vals[0])
-        for prop in onto.object_properties():
-            vals = list(prop[ind])
-            if vals:
-                props[prop.name] = getattr(vals[0], 'name', str(vals[0])).replace("_", " ")
+        # EXTRAEMOS PROPIEDADES USANDO RDFLIB PARA NO PERDER NINGUNA
+        s = rdflib.URIRef(ind.iri)
+        for p, o in grafo_local.predicate_objects(s):
+            p_str = str(p)
+            # Ignorar rdf:type y rdfs:label ya que los sacamos por separado
+            if "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" in p_str or "http://www.w3.org/2000/01/rdf-schema#label" in p_str:
+                continue
+            
+            p_name = p_str.split("#")[-1].split("/")[-1].replace("_", " ")
+            o_name = str(o).split("#")[-1].split("/")[-1].replace("_", " ")
+            props[p_name] = o_name
+
         individuos_cache.append({
             "id":          ind.name,
             "nombre":      ind.name.replace("_", " "),
             "clase":       clase_nombre,
             "propiedades": props
         })
-    print(f"[owlready2] Cache: {len(individuos_cache)} individuos")
+    print(f"[RDFLib + owlready2] Cache: {len(individuos_cache)} individuos")
 
 # ── Auto-carga al iniciar — busca todos los formatos posibles ─────
 def auto_cargar():
@@ -74,7 +78,8 @@ def auto_cargar():
         if os.path.exists(ruta):
             print(f"  Auto-cargando: {ruta}")
             try:
-                ruta_url = "file:///" + ruta.replace("\\", "/").lstrip("/")
+                # Arreglo para Windows y owlready2
+                ruta_url = "file:///" + ruta.replace("\\", "/") if os.name == 'nt' else "file://" + ruta
                 onto = get_ontology(ruta_url).load()
                 ontologia_cargada = True
                 ruta_archivo_cargado = ruta
@@ -82,6 +87,23 @@ def auto_cargar():
                 grafo_local.parse(ruta, format="xml")
                 construir_cache()
                 print(f"  ✓ Cargado: {len(individuos_cache)} individuos, {len(grafo_local)} triples")
+            except OSError as e:
+                if getattr(e, 'errno', 0) == 22 and os.name == 'nt':
+                    # Fallback para Windows [Errno 22] Invalid argument: '/C:/...'
+                    print(f"  Advertencia: Error de URI en Windows. Cargando directamente por ruta.")
+                    try:
+                        onto = get_ontology(ruta).load()
+                        ontologia_cargada = True
+                        ruta_archivo_cargado = ruta
+                        grafo_local.parse(ruta, format="xml")
+                        construir_cache()
+                        print(f"  ✓ Cargado (fallback): {len(individuos_cache)} individuos, {len(grafo_local)} triples")
+                    except Exception as e2:
+                        print(f"  ✗ Error con {nombre} (fallback): {e2}")
+                        traceback.print_exc()
+                else:
+                    print(f"  ✗ Error con {nombre}: {e}")
+                    traceback.print_exc()
             except Exception as e:
                 print(f"  ✗ Error con {nombre}: {e}")
                 traceback.print_exc()
@@ -103,8 +125,15 @@ def cargar_archivo():
         archivo.save(tmp.name)
         ruta_tmp = tmp.name
     try:
-        ruta_url = "file:///" + ruta_tmp.replace("\\", "/").lstrip("/")
-        onto = get_ontology(ruta_url).load()
+        ruta_url = "file:///" + ruta_tmp.replace("\\", "/") if os.name == 'nt' else "file://" + ruta_tmp
+        try:
+            onto = get_ontology(ruta_url).load()
+        except OSError as e:
+            if getattr(e, 'errno', 0) == 22 and os.name == 'nt':
+                onto = get_ontology(ruta_tmp).load()
+            else:
+                raise e
+
         ontologia_cargada = True
         ruta_archivo_cargado = ruta_tmp
 
@@ -137,8 +166,8 @@ def buscar_local():
     if lang not in ['es', 'en', 'both']:
         lang = 'es'
 
-    # Separar por comas para búsquedas múltiples simultáneas
-    terminos = [t.strip() for t in term_raw.split(",") if t.strip()]
+    # Separar por comas o espacios para búsquedas múltiples simultáneas (AND logic)
+    terminos = [t.strip() for t in re.split(r'[,\s]+', term_raw) if t.strip()]
 
     sparql_query = """
     PREFIX rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
@@ -167,7 +196,7 @@ def buscar_local():
                 f'(CONTAINS(LCASE(STR(?ind)), "{t_seguro}") || '
                 f'CONTAINS(LCASE(COALESCE(STR(?lbl), "")), "{t_seguro}"))'
             )
-        sparql_query += "    FILTER( " + " || ".join(filtros) + " )\n"
+        sparql_query += "    FILTER( " + " && ".join(filtros) + " )\n"
 
     sparql_query += "}"
 
@@ -221,23 +250,20 @@ def stats():
 @app.route("/dbpedia", methods=["GET"])
 def buscar_dbpedia():
     term_raw = request.args.get("term", "").strip()
-    lang     = request.args.get("lang", "both").strip().lower()
+    # Forzamos 'both' siempre para DBpedia.
+    # Así, si el usuario busca en inglés ("Refrigerator") pero la UI está en español ("es"),
+    # DBpedia igual encontrará los resultados en inglés.
+    lang = 'both'
 
-    # Validar idioma
-    if lang not in ['es', 'en', 'both']:
-        lang = 'both'
-
-    terminos = [t.strip() for t in term_raw.split(",") if t.strip()]
+    terminos = [t.strip() for t in re.split(r'[,\s]+', term_raw) if t.strip()]
 
     if not terminos:
         return jsonify({"ok": True, "resultados": []})
 
-    # Sanitización y construcción del filtro REGEX
-    filtros_regex = []
-    for t in terminos:
-        t_seguro = re.sub(r'["\\\n\r]', '', t.lower())
-        filtros_regex.append(f'regex(LCASE(STR(?nombre)), "{t_seguro}")')
-    filtro_nombres = " || ".join(filtros_regex)
+    # Usar bif:contains para búsqueda de texto completo rápida en DBpedia (Virtuoso)
+    # Ejemplo: 'lavadora' AND 'samsung'
+    terminos_limpios = [re.sub(r'["\\\n\r\']', '', t) for t in terminos]
+    bif_query = " AND ".join([f"'{t}'" for t in terminos_limpios])
 
     # Construir filtro de idioma dinámico
     if lang == 'es':
@@ -247,6 +273,8 @@ def buscar_dbpedia():
     else:  # both
         filtro_lang = '(lang(?nombre) = "en" || lang(?nombre) = "es")'
 
+    # Ya no limitamos a dbo:Device porque DBpedia omite muchos electrodomésticos ahí (ej. Refrigerator).
+    # Con bif:contains la consulta es rapidísima a nivel global.
     query = f"""
     PREFIX dbo:  <http://dbpedia.org/ontology/>
     PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
@@ -254,17 +282,16 @@ def buscar_dbpedia():
 
     SELECT DISTINCT ?recurso ?nombre ?desc ?imagen ?wiki
     WHERE {{
-      ?recurso a dbo:Device .
       ?recurso rdfs:label ?nombre .
+      ?nombre bif:contains "{bif_query}" .
       FILTER ({filtro_lang})
-
-      FILTER ( {filtro_nombres} )
 
       OPTIONAL {{ ?recurso rdfs:comment ?desc .
                  FILTER (lang(?desc) = "es" || lang(?desc) = "en") }}
       OPTIONAL {{ ?recurso dbo:thumbnail ?imagen . }}
       OPTIONAL {{ ?recurso foaf:isPrimaryTopicOf ?wiki . }}
     }}
+    ORDER BY strlen(str(?nombre))
     LIMIT 15
     """
 

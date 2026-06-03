@@ -45,6 +45,7 @@ const i18n = {
     'sparql.toggle.hide': '▼ ocultar',
 
     // ══ RESULTADOS ══
+    'results.unified': '🎯 Resultados de Búsqueda',
     'results.local': '🏠 Resultados Locales',
     'results.dbpedia': '🌐 DBpedia',
     'results.ready': 'Listo para buscar',
@@ -161,6 +162,7 @@ const i18n = {
     'sparql.toggle.hide': '▼ hide',
 
     // ══ RESULTS ══
+    'results.unified': '🎯 Search Results',
     'results.local': '🏠 Local Results',
     'results.dbpedia': '🌐 DBpedia',
     'results.ready': 'Ready to search',
