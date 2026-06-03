@@ -2,4 +2,4 @@ flask
 flask-cors
 owlready2
 SPARQLWrapper
- 
+rdflib

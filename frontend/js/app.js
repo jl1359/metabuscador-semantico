@@ -1,9 +1,50 @@
 /* ══════════════════════════════════════════════
    METABUSCADOR SEMÁNTICO — UMSS Web Semántica
-   app.js v2 — Backend RDFLib + SPARQLWrapper
+   app.js v4 — Backend RDFLib + SPARQLWrapper + i18n
    ══════════════════════════════════════════════ */
 
 const API = 'http://localhost:5000';
+
+// ══════════════════════════════════════════════
+// MULTILINGUALIDAD (i18n)
+// ══════════════════════════════════════════════
+let currentLanguage = 'es';
+
+function initLanguage() {
+  // 1. Leer localStorage primero
+  const savedLang = localStorage.getItem('language');
+  if (savedLang && ['es', 'en'].includes(savedLang)) {
+    currentLanguage = savedLang;
+  } else {
+    // 2. Detectar idioma del navegador
+    const navLang = navigator.language || navigator.userLanguage;
+    if (navLang.startsWith('en')) {
+      currentLanguage = 'en';
+    } else {
+      currentLanguage = 'es'; // Default a español
+    }
+    localStorage.setItem('language', currentLanguage);
+  }
+
+  // 3. Actualizar UI
+  updateLanguageButton();
+  translateDOM(currentLanguage);
+}
+
+function toggleLanguage() {
+  currentLanguage = currentLanguage === 'es' ? 'en' : 'es';
+  localStorage.setItem('language', currentLanguage);
+  updateLanguageButton();
+  translateDOM(currentLanguage);
+  buscarUnificado(); // Re-buscar con nuevo idioma
+}
+
+function updateLanguageButton() {
+  const btn = document.getElementById('langToggle');
+  if (btn) {
+    btn.textContent = currentLanguage === 'es' ? 'EN' : 'ES';
+  }
+}
 
 // ══════════════════════════════════════════════
 // TEMA CLARO / OSCURO
@@ -30,14 +71,18 @@ let ontologiaCargada = false;
 // ══════════════════════════════════════════════
 window.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('themeToggle').textContent = savedTheme === 'light' ? '🌙' : '🌞';
+
+  // Inicializar idioma
+  initLanguage();
+
+  // Listener para botón de idioma
+  document.getElementById('langToggle').addEventListener('click', toggleLanguage);
+
+  // Un único listener para el Enter — llama siempre a la búsqueda unificada
   document.getElementById('searchInput').addEventListener('keydown', e => {
-    if (e.key === 'Enter') doSearch();
-  });
-  document.getElementById('dbpSearchInput').addEventListener('keydown', e => {
-    if (e.key === 'Enter') doDbpSearch();
+    if (e.key === 'Enter') buscarUnificado();
   });
 
-  // Verifica si el backend ya cargó la ontología automáticamente
   await verificarBackend();
 });
 
@@ -50,16 +95,13 @@ async function verificarBackend() {
     const data = await resp.json();
 
     if (data.ontologia_cargada) {
-      // La ontología ya fue cargada automáticamente por el servidor
       ontologiaCargada = true;
       await cargarEstadisticas();
       renderApp();
     } else {
-      // Muestra el cargador de archivo
       mostrarCargador();
     }
   } catch(e) {
-    // Backend no está corriendo
     document.getElementById('loaderSection').innerHTML = `
       <div class="search-section" style="max-width:500px; margin:0 auto; text-align:center;">
         <span style="font-size:36px; display:block; margin-bottom:12px;">⚠️</span>
@@ -74,7 +116,6 @@ async function verificarBackend() {
 }
 
 function mostrarCargador() {
-  // El cargador ya está en el HTML, solo nos aseguramos que esté visible
   document.getElementById('loaderSection').style.display = 'block';
 }
 
@@ -99,7 +140,6 @@ async function handleFile(file) {
       </p>
     </div>`;
 
-  // Envía el archivo al backend para que RDFLib lo procese
   const formData = new FormData();
   formData.append('owl_file', file);
 
@@ -130,7 +170,7 @@ async function handleFile(file) {
 }
 
 // ══════════════════════════════════════════════
-// CARGAR ESTADÍSTICAS DESDE BACKEND
+// CARGAR ESTADÍSTICAS Y FILTROS DE CLASE
 // ══════════════════════════════════════════════
 async function cargarEstadisticas() {
   try {
@@ -142,7 +182,6 @@ async function cargarEstadisticas() {
     const clases = await clasesResp.json();
 
     if (stats.ok) {
-      // Cuenta individuos reales
       const buscarResp = await fetch(`${API}/buscar?term=`);
       const buscarData = await buscarResp.json();
       const nInd = buscarData.ok ? buscarData.total : '—';
@@ -154,19 +193,18 @@ async function cargarEstadisticas() {
     }
 
     if (clases.ok) {
-      // Filtra clases relevantes (con individuos)
       const clasesConIndividuos = clases.clases
         .filter(c => c.total > 0 && !['Thing','NamedIndividual'].includes(c.clase))
         .slice(0, 20);
 
-      // Botones de filtro
+      // Botones de filtro por clase
       document.getElementById('filterBtns').innerHTML = clasesConIndividuos.map(c =>
         `<button class="filter-btn" onclick="setFilter('${escapeAttr(c.clase)}', this)">
            ${escapeHtml(c.clase)} <span style="opacity:0.5">(${c.total})</span>
          </button>`
       ).join('');
 
-      // Explorador de ontología
+      // Explorador de ontología (chips clickeables)
       document.getElementById('classGrid').innerHTML = clasesConIndividuos.map(c =>
         `<div class="class-chip" onclick="searchByClass('${escapeAttr(c.clase)}')">
            ${escapeHtml(c.clase)}<span class="count">${c.total}</span>
@@ -184,11 +222,11 @@ async function cargarEstadisticas() {
 function renderApp() {
   document.getElementById('loaderSection').style.display = 'none';
   document.getElementById('appSection').style.display    = 'block';
-  doSearch(); // muestra todos al inicio
+  buscarUnificado(); // muestra todos al inicio
 }
 
 // ══════════════════════════════════════════════
-// SPARQL BUILDER (para mostrar en pantalla)
+// SPARQL BUILDERS (para mostrar en pantalla)
 // ══════════════════════════════════════════════
 function buildSPARQLQuery(term, claseFilter) {
   const base = 'http://www.umss.edu.bo/ontologias/electrodomesticos.owl#';
@@ -203,189 +241,172 @@ function buildSPARQLQuery(term, claseFilter) {
   q += `  <span class="var">?individuo</span> rdf:type <span class="var">?clase</span> .\n`;
   q += `  <span class="var">?clase</span> rdf:type owl:Class .\n`;
   if (claseFilter) {
-    q += `  <span class="comment"># Filtro por clase seleccionada</span>\n`;
     q += `  <span class="kw">FILTER</span>(<span class="kw">CONTAINS</span>(<span class="kw">LCASE</span>(<span class="kw">STR</span>(<span class="var">?clase</span>)), <span class="str">"${escapeHtml(claseFilter.toLowerCase())}"</span>))\n`;
   }
   if (term) {
-    q += `  <span class="comment"># Búsqueda semántica fuzzy</span>\n`;
-    q += `  <span class="kw">FILTER</span>(<span class="kw">CONTAINS</span>(<span class="kw">LCASE</span>(<span class="kw">STR</span>(<span class="var">?individuo</span>)), <span class="str">"${escapeHtml(term.toLowerCase())}"</span>))\n`;
+    const terminos = term.split(',').map(t => t.trim()).filter(t => t);
+    if (terminos.length > 1) {
+      q += `  <span class="comment"># Búsqueda múltiple (OR)</span>\n`;
+      const filtros = terminos.map(t =>
+        `<span class="kw">CONTAINS</span>(<span class="kw">LCASE</span>(<span class="kw">STR</span>(<span class="var">?individuo</span>)), <span class="str">"${escapeHtml(t.toLowerCase())}"</span>)`
+      );
+      q += `  <span class="kw">FILTER</span>( ${filtros.join(' || ')} )\n`;
+    } else {
+      q += `  <span class="kw">FILTER</span>(<span class="kw">CONTAINS</span>(<span class="kw">LCASE</span>(<span class="kw">STR</span>(<span class="var">?individuo</span>)), <span class="str">"${escapeHtml(term.toLowerCase())}"</span>))\n`;
+    }
   }
   q += `}\n<span class="kw">ORDER BY</span> <span class="var">?clase</span> <span class="var">?individuo</span>\n<span class="kw">LIMIT</span> 200`;
   return q;
 }
 
-// ══════════════════════════════════════════════
-// BÚSQUEDA LOCAL — llama al backend RDFLib
-// ══════════════════════════════════════════════
-async function doSearch() {
-  const term = document.getElementById('searchInput').value.trim().toLowerCase();
-  currentQuery = term;
-  await runQuery(term, currentFilter);
+function buildDbpSPARQLQuery(term) {
+  const terminos = term.split(/[,\s]+/).map(t => t.trim()).filter(t => t);
+  const bif  = terminos.map(t => `'${escapeHtml(t)}'`).join(' AND ');
+
+  return `<span class="comment"># BC Remota — DBpedia SPARQL</span>
+<span class="comment"># Endpoint: https://dbpedia.org/sparql</span>
+<span class="comment"># Búsqueda de texto completo con Virtuoso bif:contains</span>
+
+<span class="kw">PREFIX</span> rdfs: &lt;http://www.w3.org/2000/01/rdf-schema#&gt;
+<span class="kw">PREFIX</span> dbo:  &lt;http://dbpedia.org/ontology/&gt;
+<span class="kw">PREFIX</span> foaf: &lt;http://xmlns.com/foaf/0.1/&gt;
+
+<span class="kw">SELECT DISTINCT</span> <span class="var">?recurso</span> <span class="var">?nombre</span> <span class="var">?desc</span> <span class="var">?imagen</span> <span class="var">?wiki</span>
+<span class="kw">WHERE</span> {
+  <span class="var">?recurso</span> rdfs:label <span class="var">?nombre</span> .
+  <span class="var">?nombre</span> bif:contains <span class="str">"${bif}"</span> .
+  <span class="kw">FILTER</span>(<span class="kw">lang</span>(<span class="var">?nombre</span>) = <span class="str">"en"</span> || <span class="kw">lang</span>(<span class="var">?nombre</span>) = <span class="str">"es"</span>)
+  <span class="kw">OPTIONAL</span> { <span class="var">?recurso</span> rdfs:comment <span class="var">?desc</span> . }
+  <span class="kw">OPTIONAL</span> { <span class="var">?recurso</span> dbo:thumbnail <span class="var">?imagen</span> . }
+  <span class="kw">OPTIONAL</span> { <span class="var">?recurso</span> foaf:isPrimaryTopicOf <span class="var">?wiki</span> . }
+}
+<span class="kw">LIMIT</span> 15`;
 }
 
+// ══════════════════════════════════════════════
+// BÚSQUEDA UNIFICADA — local + DBpedia en paralelo
+// ══════════════════════════════════════════════
+async function buscarUnificado() {
+  const input = document.getElementById('searchInput').value.trim();
+  currentQuery = input.toLowerCase();
+
+  // Actualizar paneles SPARQL
+  document.getElementById('sparqlDisplay').innerHTML    = buildSPARQLQuery(input, currentFilter);
+  document.getElementById('dbpSparqlDisplay').innerHTML = buildDbpSPARQLQuery(input || 'lavadora');
+
+  const container = document.getElementById('unifiedResults');
+  const countEl   = document.getElementById('unifiedResultsCount');
+
+  // Indicador de carga
+  container.innerHTML = `<div style="grid-column: 1 / -1; text-align:center; padding:60px;"><div class="spinner"></div><p style="margin-top:15px; color:var(--accent);">${t('search.loading.local') || 'Buscando...'}</p></div>`;
+  countEl.innerHTML = '';
+  document.getElementById('dbpEndpointStatus').textContent = '';
+
+  // Construir parámetros
+  const params = new URLSearchParams();
+  if (input)         params.set('term',  input);
+  if (currentFilter) params.set('clase', currentFilter);
+  params.set('lang', currentLanguage);  // NUEVO: agregar idioma
+
+  try {
+    // Ambas peticiones en paralelo
+    const [resLocal, resDbp] = await Promise.all([
+      fetch(`${API}/buscar?${params}`,                              { signal: AbortSignal.timeout(15000) }),
+      fetch(`${API}/dbpedia?term=${encodeURIComponent(input)}&lang=${currentLanguage}`, { signal: AbortSignal.timeout(30000) })
+    ]);
+
+    const dataLocal = await resLocal.json();
+    const dataDbp   = await resDbp.json();
+
+    let localRes = [];
+    let dbpRes = [];
+    
+    if (dataLocal.ok) localRes = dataLocal.resultados || [];
+    if (dataDbp.ok) {
+      dbpRes = dataDbp.resultados || [];
+      document.getElementById('dbpEndpointStatus').textContent = t('dbpedia.status') || 'Endpoint: dbpedia.org/sparql';
+    }
+    
+    renderUnifiedResults(localRes, dbpRes, input);
+
+  } catch(error) {
+    container.innerHTML = `<div class="state-msg" style="grid-column: 1 / -1;"><span class="icon">⚠️</span><h3>${t('error.network') || 'Error de red'}</h3><p>${escapeHtml(error.message)}</p></div>`;
+  }
+}
+
+// ══════════════════════════════════════════════
+// FILTROS POR CLASE
+// ══════════════════════════════════════════════
 function setFilter(cls, btn) {
-  // 1. Leer siempre lo que está escrito en la caja AHORA MISMO
   const term = document.getElementById('searchInput').value.trim().toLowerCase();
   currentQuery = term;
 
-  // 2. Lógica de "Toggle" (Poner y quitar filtro)
+  // Toggle: si ya estaba activo, lo quita
   if (btn.classList.contains('active')) {
-    // Si ya estaba activo y lo vuelvo a presionar, quito el filtro
     btn.classList.remove('active');
     currentFilter = '';
   } else {
-    // Si no estaba activo, limpio los demás y activo este
     document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     currentFilter = cls;
   }
-  
-  runQuery(currentQuery, currentFilter);
+
+  buscarUnificado();
 }
 
 function searchByClass(cls) {
-  // Limpiar la barra de búsqueda para enfocar solo en la clase
   document.getElementById('searchInput').value = '';
-  currentQuery = '';
+  currentQuery  = '';
   currentFilter = cls;
-  
-  // Limpiar botones y activar el correcto
+
   document.querySelectorAll('.filter-btn').forEach(b => {
     b.classList.remove('active');
-    // Activa el botón si su texto incluye el nombre de la clase
-    if(b.textContent.includes(cls)) {
-      b.classList.add('active');
-    }
+    if (b.textContent.includes(cls)) b.classList.add('active');
   });
 
-  runQuery('', cls);
+  buscarUnificado();
   window.scrollTo({ top: 300, behavior: 'smooth' });
 }
 
-function setFilter(cls, btn) {
-  currentFilter = cls;
-  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  runQuery(currentQuery, cls);
-}
-
-function searchByClass(cls) {
-  currentFilter = cls;
-  document.getElementById('searchInput').value = '';
-  currentQuery = '';
-  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-  runQuery('', cls);
-  window.scrollTo({ top: 300, behavior: 'smooth' });
-}
-
-async function runQuery(term, claseFilter) {
-  document.getElementById('sparqlDisplay').innerHTML = buildSPARQLQuery(term, claseFilter);
-
-  const params = new URLSearchParams();
-  if (term)        params.set('term', term);
-  if (claseFilter) params.set('clase', claseFilter);
-
-  try {
-    const container = document.getElementById('results');
-    
-    // 1. Mostrar estado de carga solo para local
-    container.innerHTML = `
-      <div style="text-align:center; padding:40px;">
-        <div class="spinner"></div>
-        <p style="margin-top:15px; color:var(--accent);">Buscando en ontología local...</p>
-      </div>`;
-    document.getElementById('resultsCount').innerHTML = 'Buscando...';
-
-    // 2. Hacer ÚNICAMENTE la petición local
-    const resp = await fetch(`${API}/buscar?${params}`, { signal: AbortSignal.timeout(15000) });
-    const dataLocal = await resp.json();
-
-    // 3. Renderizar solo las tarjetas locales
-    if (dataLocal.ok) {
-      renderResults(dataLocal.resultados, term); 
-    } else {
-      renderError(dataLocal.error);
-    }
-
-  } catch(e) {
-    renderError('Error de conexión local: ' + e.message);
-  }
-}
-
 // ══════════════════════════════════════════════
-// FUNCIÓN AUXILIAR (Pégala justo debajo de runQuery)
-// ══════════════════════════════════════════════
-function generateDbpCardsHtml(resultados) {
-  function iconForName(nombre) {
-    const n = (nombre || '').toLowerCase();
-    if (n.includes('refriger') || n.includes('fridge')) return '🧊';
-    if (n.includes('wash') || n.includes('laundry'))    return '🫧';
-    if (n.includes('television') || n.includes('tv'))   return '📺';
-    if (n.includes('computer') || n.includes('laptop')) return '💻';
-    if (n.includes('microwave') || n.includes('oven'))  return '📡';
-    if (n.includes('vacuum'))  return '🌀';
-    return '🔌';
-  }
-
-  return resultados.map(r => {
-    const icon = iconForName(r.nombre);
-    const desc = r.descripcion ? (r.descripcion.length > 280 ? r.descripcion.slice(0, 280) + '...' : r.descripcion) : '<em style="opacity:0.5">Sin descripción disponible.</em>';
-    const imgHtml = r.imagen ? `<img class="dbp-img" src="${r.imagen}" alt="${escapeHtml(r.nombre)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : '';
-    const placeholderHtml = `<div class="dbp-img-placeholder" ${r.imagen ? 'style="display:none"' : ''}>${icon}</div>`;
-
-    return `
-      <div class="dbp-card" style="margin-bottom:15px; border-left: 4px solid var(--accent3);">
-        <div class="dbp-card-top">
-          ${imgHtml}${placeholderHtml}
-          <div class="dbp-info">
-            <div class="dbp-name">${escapeHtml(r.nombre)}</div>
-            <span class="dbp-type">DBpedia · Recurso Externo</span>
-            <p class="dbp-abstract">${desc}</p>
-          </div>
-        </div>
-        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;">
-          ${r.wikiPage ? `<a class="dbp-link" href="${r.wikiPage}" target="_blank" rel="noopener">🌐 Ver en Wikipedia</a>` : ''}
-          ${r.dbpediaLink ? `<a class="dbp-link" style="border-color:rgba(124,106,247,0.3);color:var(--accent)" href="${r.dbpediaLink}" target="_blank" rel="noopener">◈ Recurso DBpedia (RDF)</a>` : ''}
-        </div>
-      </div>`;
-  }).join('');
-}
-
-// ══════════════════════════════════════════════
-// RENDER RESULTADOS OWL
+// RENDER RESULTADOS UNIFICADOS
 // ══════════════════════════════════════════════
 const KEY_PROPS = [
-  'consumo_potencia','capacidad_litros','capacidad_lavado','capacidad_refrigeracion',
-  'eficiencia_energetica','tamano_pantalla','voltaje_aparato','peso_aparato',
-  'numero_hornillas','capacidad_tazas','capacidad_carga','rpm_centrifugado',
-  'potencia_microondas','area_cobertura','numero_velocidades','memoria_ram',
-  'almacenamiento_interno','capacidad_congelacion','vida_util_estimada',
-  'tecnologia_inverter','tv_smart','portable','conectividad_red'
+  'consumo potencia','capacidad litros','capacidad lavado','capacidad refrigeracion',
+  'eficiencia energetica','tamano pantalla','voltaje aparato','peso aparato',
+  'numero hornillas','capacidad tazas','capacidad carga','rpm centrifugado',
+  'potencia microondas','area cobertura','numero velocidades','memoria ram',
+  'almacenamiento interno','capacidad congelacion','vida util estimada',
+  'tecnologia inverter','tv smart','portable','conectividad red',
+  'fabricado por','tiene componente','pais origen marca','ano creacion marca'
 ];
 
-function renderResults(resultados, term) {
-  const container = document.getElementById('results');
-  const countEl   = document.getElementById('resultsCount');
-
-  if (!resultados || resultados.length === 0) {
+function renderUnifiedResults(localRes, dbpRes, term) {
+  const container = document.getElementById('unifiedResults');
+  const countEl   = document.getElementById('unifiedResultsCount');
+  
+  const total = localRes.length + dbpRes.length;
+  
+  if (total === 0) {
     countEl.innerHTML = '';
     container.innerHTML = `
-      <div class="state-msg">
+      <div class="state-msg" style="grid-column: 1 / -1;">
         <span class="icon">🔍</span>
-        <h3>Sin resultados</h3>
-        <p>No se encontraron coincidencias para "<strong>${escapeHtml(term)}</strong>"</p>
+        <h3>${t('results.empty.local') || 'Sin resultados'}</h3>
+        <p>${t('results.empty') || 'No se encontraron coincidencias para'} "<strong>${escapeHtml(term)}</strong>"</p>
       </div>`;
     return;
   }
-
-  countEl.innerHTML = `<span>${resultados.length}</span> resultado${resultados.length !== 1 ? 's' : ''} · <span style="color:var(--accent3)">RDFLib SPARQL local</span>`;
-
-  const tokens = term ? term.split(/\s+/).filter(t => t.length >= 2) : [];
-
-  container.innerHTML = resultados.slice(0, 60).map(ind => {
+  
+  countEl.innerHTML = `<span>${total}</span> ${total !== 1 ? t('results.count.plural') || 'resultados' : t('results.count') || 'resultado'}`;
+  
+  const tokens = term ? term.split(/[\\s,]+/).filter(t => t.length >= 2) : [];
+  
+  // Local cards generator
+  const localCardsHtml = localRes.slice(0, 60).map(ind => {
     const props = ind.propiedades || {};
     const shownProps = KEY_PROPS.filter(p => props[p] !== undefined).slice(0, 4);
-
+    
     const propsHtml = shownProps.map(p => {
       let val = props[p], valClass = '';
       if (val === 'true')  { val = '✓ Sí'; valClass = 'bool-true'; }
@@ -395,39 +416,83 @@ function renderResults(resultados, term) {
         <span class="prop-val ${valClass}">${escapeHtml(String(val))}</span>
       </div>`;
     }).join('');
-
+    
     const nombre = highlightTokens(escapeHtml(ind.nombre), tokens);
-
+    
     return `
-      <div class="result-card" onclick="showDetail(${JSON.stringify(ind)})">
-        <div class="card-top">
+      <div class="result-card" onclick='showDetail(${JSON.stringify(ind).replace(/'/g, "&#39;")})'>
+        <div style="position:absolute; top:12px; right:12px; font-size:10px; padding:2px 8px; border-radius:10px; background:rgba(124,106,247,0.15); color:var(--accent); border:1px solid rgba(124,106,247,0.3); font-family:'Space Mono',monospace;">🏠 Local</div>
+        <div class="card-top" style="margin-right: 60px;">
           <div class="card-name">${nombre}</div>
           <div class="card-class">${escapeHtml(ind.clase)}</div>
         </div>
-        ${propsHtml ? `<div class="card-props">${propsHtml}</div>`
+        ${propsHtml
+          ? `<div class="card-props">${propsHtml}</div>`
           : '<p style="color:var(--muted);font-size:12px;font-family:Space Mono,monospace">Sin propiedades registradas</p>'}
       </div>`;
-  }).join('');
+  });
 
-  if (resultados.length > 60) {
+  // DBpedia helper
+  function iconForName(nombre) {
+    const n = (nombre || '').toLowerCase();
+    if (n.includes('refriger') || n.includes('fridge'))   return '🧊';
+    if (n.includes('wash')     || n.includes('laundry'))  return '🫧';
+    if (n.includes('televisi') || n.includes('tv'))       return '📺';
+    if (n.includes('computer') || n.includes('laptop'))   return '💻';
+    if (n.includes('microwave')|| n.includes('oven'))     return '📡';
+    if (n.includes('vacuum'))                             return '🌀';
+    if (n.includes('air')      || n.includes('condition'))return '❄️';
+    if (n.includes('coffee')   || n.includes('cafe'))     return '☕';
+    return '🔌';
+  }
+
+  // DBpedia cards generator
+  const dbpCardsHtml = dbpRes.map(r => {
+    const icon = iconForName(r.nombre);
+    const desc = r.descripcion
+      ? (r.descripcion.length > 120 ? r.descripcion.slice(0, 120) + '...' : r.descripcion)
+      : `<em style="opacity:0.5">${t('dbpedia.no.description') || 'Sin descripción'}</em>`;
+      
+    const imgHtml = r.imagen
+      ? `<img class="dbp-img" style="width:60px;height:60px;" src="${r.imagen}" alt="${escapeHtml(r.nombre)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+      : '';
+    const placeholderHtml = `<div class="dbp-img-placeholder" style="width:60px;height:60px;font-size:24px;" ${r.imagen ? 'style="display:none"' : ''}>${icon}</div>`;
+
+    return `
+      <div class="dbp-card">
+        <div style="position:absolute; top:12px; right:12px; font-size:10px; padding:2px 8px; border-radius:10px; background:rgba(0,229,204,0.1); color:var(--accent3); border:1px solid rgba(0,229,204,0.3); font-family:'Space Mono',monospace;">🌐 DBpedia</div>
+        <div class="dbp-card-top" style="margin-right: 70px;">
+          ${imgHtml}${placeholderHtml}
+          <div class="dbp-info">
+            <div class="dbp-name" style="font-size:15px;">${escapeHtml(r.nombre)}</div>
+            <p class="dbp-abstract" style="font-size:12px;">${desc}</p>
+          </div>
+        </div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;">
+          <button class="dbp-link" style="background:var(--accent); color:#fff; border:none; cursor:pointer; padding:6px 12px; border-radius:8px;"
+            onclick="guardarEnOntologia(event, '${escapeAttr(r.nombre)}', '${escapeAttr(r.recurso)}')">
+            ${t('dbpedia.button.save') || 'Guardar'}
+          </button>
+          ${r.wikiPage ? `<a class="dbp-link" href="${r.wikiPage}" target="_blank" rel="noopener">Wikipedia</a>` : ''}
+          ${r.dbpediaLink ? `<a class="dbp-link" style="border-color:rgba(124,106,247,0.3);color:var(--accent)" href="${r.dbpediaLink}" target="_blank" rel="noopener">Recurso RDF</a>` : ''}
+        </div>
+      </div>`;
+  });
+
+  // Mezclar resultados
+  const combined = [...localCardsHtml, ...dbpCardsHtml];
+  container.innerHTML = combined.join('');
+  
+  if (localRes.length > 60) {
     container.innerHTML += `
-      <div class="state-msg" style="padding:20px">
-        <p>Mostrando 60 de ${resultados.length} resultados. Refina tu búsqueda.</p>
+      <div class="state-msg" style="grid-column: 1 / -1; padding:20px;">
+        <p>Mostrando 60 de ${localRes.length} locales. Refina tu búsqueda.</p>
       </div>`;
   }
 }
 
-function renderError(msg) {
-  document.getElementById('results').innerHTML = `
-    <div class="state-msg">
-      <span class="icon">⚠️</span>
-      <h3>Error</h3>
-      <p>${escapeHtml(msg)}</p>
-    </div>`;
-}
-
 // ══════════════════════════════════════════════
-// MODAL DETALLE
+// MODAL DETALLE (resultado local)
 // ══════════════════════════════════════════════
 function showDetail(ind) {
   document.getElementById('modalName').textContent  = ind.nombre;
@@ -459,197 +524,49 @@ function toggleSparql() {
   const body   = document.getElementById('sparqlBody');
   const toggle = document.getElementById('sparqlToggle');
   const open   = body.classList.toggle('open');
-  toggle.textContent = open ? '▼ ocultar' : '▶ ver consulta';
+  toggle.textContent = open ? '▼ ocultar' : '▶ ver';
 }
 function toggleDbpSparql() {
   const body   = document.getElementById('dbpSparqlBody');
   const toggle = document.getElementById('dbpSparqlToggle');
   const open   = body.classList.toggle('open');
-  toggle.textContent = open ? '▼ ocultar' : '▶ ver consulta';
+  toggle.textContent = open ? '▼ ocultar' : '▶ ver';
 }
 
 // ══════════════════════════════════════════════
-// PESTAÑAS
+// GUARDAR EN ONTOLOGÍA (desde DBpedia → local)
+// CORREGIDO: firma (event, nombre, uri) — event es el objeto Event real
 // ══════════════════════════════════════════════
-function switchTab(tab) {
-  document.getElementById('tabOwl').style.display     = tab === 'owl'     ? 'block' : 'none';
-  document.getElementById('tabDbpedia').style.display = tab === 'dbpedia' ? 'block' : 'none';
-  document.getElementById('tabOwlBtn').classList.toggle('active', tab === 'owl');
-  document.getElementById('tabDbpBtn').classList.toggle('active', tab === 'dbpedia');
-}
-
-// ══════════════════════════════════════════════
-// DBPEDIA — llama al backend SPARQLWrapper (CON CACHÉ)
-// ══════════════════════════════════════════════
-function dbpQuick(term) {
-  document.getElementById('dbpSearchInput').value = term;
-  doDbpSearch();
-}
-
-async function doDbpSearch() {
-  const term = document.getElementById('dbpSearchInput').value.trim();
-  if (!term) return;
-
-  // Muestra la consulta SPARQL y estado de carga
-  updateDbpSparqlPanel(term);
-  showDbpLoading(term);
-
-  // CLAVE PARA EL CACHÉ: Identificador único para esta búsqueda
-  const cacheKey = `dbpedia_cache_${term.toLowerCase()}`;
+async function guardarEnOntologia(event, nombre, uri) {
+  const btn = event.currentTarget;
+  const textoOriginal = btn.innerHTML;
+  btn.innerHTML = `⏳ ${t('dbpedia.button.saving')}`;
+  btn.disabled  = true;
 
   try {
-    // 1. INTENTAR LEER DEL CACHÉ LOCAL PRIMERO
-    const cachedData = localStorage.getItem(cacheKey);
-
-    if (cachedData) {
-      console.log(`[Caché] Cargando resultados de DBpedia para "${term}" desde memoria local.`);
-      const data = JSON.parse(cachedData);
-      
-      // Añadimos un pequeño retraso artificial (300ms) solo para que se note
-      // visualmente el cambio, pero simulando velocidad de caché
-      setTimeout(() => {
-        if (data.ok) {
-          renderDbpResults(data.resultados, term);
-          // Modificamos el contador para mostrar que vino del caché
-          document.getElementById('dbpResultsCount').innerHTML = 
-            `<span>${data.resultados.length}</span> resultado${data.resultados.length !== 1 ? 's' : ''} · <span style="color:var(--success)">⚡ Cargado desde Caché Local</span>`;
-        } else {
-          showDbpError(term, data.error);
-        }
-      }, 300);
-      return; // Detenemos la ejecución aquí, no llamamos al servidor
-    }
-
-    // 2. SI NO HAY CACHÉ, LLAMAR AL SERVIDOR BACKEND
-    console.log(`[Red] Consultando al servidor backend para "${term}"...`);
-    const resp = await fetch(`${API}/dbpedia?term=${encodeURIComponent(term)}`, {
-      signal: AbortSignal.timeout(50000)
+    const resp = await fetch(`${API}/poblar`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ nombre, uri })
     });
-    
     const data = await resp.json();
 
     if (data.ok) {
-      // 3. GUARDAR EL RESULTADO EN CACHÉ PARA LA PRÓXIMA VEZ
-      localStorage.setItem(cacheKey, JSON.stringify(data));
-      renderDbpResults(data.resultados, term);
+      btn.innerHTML          = `✅ ${t('dbpedia.button.saved')}`;
+      btn.style.background   = 'var(--success)';
+      await cargarEstadisticas(); // refresca stats y filtros
     } else {
-      showDbpError(term, data.error);
+      btn.innerHTML        = t('dbpedia.button.error');
+      btn.style.background = 'red';
+      btn.disabled         = false;
+      alert(t('alert.save.error') + ' ' + data.error);
     }
-  } catch(e) {
-    showDbpError(term, e.message.includes('fetch')
-      ? '⚠️ Backend no corriendo. Ejecuta: python server.py'
-      : e.message);
+  } catch(err) {
+    btn.innerHTML        = t('dbpedia.button.network.error');
+    btn.style.background = 'red';
+    btn.disabled         = false;
+    alert(t('alert.network.error') + ' ' + err.message);
   }
-}
-
-function updateDbpSparqlPanel(term) {
-  const q = `<span class="comment"># BC Remota — DBpedia SPARQL</span>
-<span class="comment"># Ejecutado por: Python SPARQLWrapper en el backend</span>
-<span class="comment"># Endpoint: https://dbpedia.org/sparql</span>
-
-<span class="kw">PREFIX</span> dbo:  &lt;http://dbpedia.org/ontology/&gt;
-<span class="kw">PREFIX</span> rdfs: &lt;http://www.w3.org/2000/01/rdf-schema#&gt;
-<span class="kw">PREFIX</span> foaf: &lt;http://xmlns.com/foaf/0.1/&gt;
-
-<span class="kw">SELECT DISTINCT</span> <span class="var">?recurso</span> <span class="var">?nombre</span> <span class="var">?descripcion</span> <span class="var">?imagen</span> <span class="var">?wikiPage</span>
-<span class="kw">WHERE</span> {
-  <span class="var">?recurso</span> rdfs:label <span class="var">?nombre</span> .
-  <span class="kw">FILTER</span>(LANG(<span class="var">?nombre</span>) = <span class="str">"en"</span>)
-  <span class="kw">FILTER</span>(<span class="kw">CONTAINS</span>(<span class="kw">LCASE</span>(<span class="kw">STR</span>(<span class="var">?nombre</span>)), <span class="str">"${escapeHtml(term.toLowerCase())}"</span>))
-  <span class="var">?recurso</span> dbo:abstract <span class="var">?descripcion</span> .
-  <span class="kw">FILTER</span>(LANG(<span class="var">?descripcion</span>) = <span class="str">"en"</span>)
-  <span class="kw">FILTER</span>(<span class="kw">CONTAINS</span>(<span class="kw">LCASE</span>(<span class="kw">STR</span>(<span class="var">?descripcion</span>)), <span class="str">"appliance"</span>) || ...)
-  <span class="kw">OPTIONAL</span> { <span class="var">?recurso</span> dbo:thumbnail <span class="var">?imagen</span> . }
-  <span class="kw">OPTIONAL</span> { <span class="var">?recurso</span> foaf:isPrimaryTopicOf <span class="var">?wikiPage</span> . }
-}
-<span class="kw">ORDER BY</span> <span class="var">?nombre</span>
-<span class="kw">LIMIT</span> 10`;
-  document.getElementById('dbpSparqlDisplay').innerHTML = q;
-}
-
-function showDbpLoading(term) {
-  document.getElementById('dbpResults').innerHTML = `
-    <div class="dbp-loading">
-      <div class="spinner"></div>
-      <p>Consultando DBpedia para "<strong>${escapeHtml(term)}</strong>"...</p>
-      <p style="font-size:11px;margin-top:8px;opacity:0.6">
-        Endpoint: dbpedia.org/sparql · SPARQLWrapper · puede tardar 10-30s
-      </p>
-    </div>`;
-  document.getElementById('dbpResultsCount').innerHTML  = '';
-  document.getElementById('dbpEndpointStatus').textContent = '';
-}
-
-function showDbpError(term, msg) {
-  document.getElementById('dbpResults').innerHTML = `
-    <div class="state-msg">
-      <span class="icon">⚠️</span>
-      <h3>Error al consultar DBpedia</h3>
-      <p>${escapeHtml(msg)}</p>
-    </div>`;
-}
-
-function renderDbpResults(resultados, term) {
-  const container = document.getElementById('dbpResults');
-  const countEl   = document.getElementById('dbpResultsCount');
-  const statusEl  = document.getElementById('dbpEndpointStatus');
-
-  statusEl.textContent = 'dbpedia.org/sparql · SPARQLWrapper · Python backend';
-
-  if (!resultados || resultados.length === 0) {
-    countEl.innerHTML = '';
-    container.innerHTML = `
-      <div class="state-msg">
-        <span class="icon">🔍</span>
-        <h3>Sin resultados en DBpedia</h3>
-        <p>Intenta: "washing machine", "refrigerator", "microwave oven"</p>
-      </div>`;
-    return;
-  }
-
-  countEl.innerHTML = `<span>${resultados.length}</span> resultado${resultados.length !== 1 ? 's' : ''} · <span style="color:var(--accent3)">DBpedia SPARQL remoto</span>`;
-
-  function iconForName(nombre) {
-    const n = (nombre || '').toLowerCase();
-    if (n.includes('refriger') || n.includes('fridge')) return '🧊';
-    if (n.includes('wash') || n.includes('laundry'))    return '🫧';
-    if (n.includes('television') || n.includes('tv'))   return '📺';
-    if (n.includes('computer') || n.includes('laptop')) return '💻';
-    if (n.includes('microwave') || n.includes('oven'))  return '📡';
-    if (n.includes('vacuum'))  return '🌀';
-    if (n.includes('air') || n.includes('condition'))   return '❄️';
-    if (n.includes('coffee') || n.includes('cafe'))     return '☕';
-    return '🔌';
-  }
-
-  container.innerHTML = resultados.map(r => {
-    const icon = iconForName(r.nombre);
-    const desc = r.descripcion
-      ? (r.descripcion.length > 280 ? r.descripcion.slice(0, 280) + '...' : r.descripcion)
-      : '<em style="opacity:0.5">Sin descripción disponible.</em>';
-
-    const imgHtml = r.imagen
-      ? `<img class="dbp-img" src="${r.imagen}" alt="${escapeHtml(r.nombre)}"
-             onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
-      : '';
-    const placeholderHtml = `<div class="dbp-img-placeholder" ${r.imagen ? 'style="display:none"' : ''}>${icon}</div>`;
-
-    return `
-      <div class="dbp-card">
-        <div class="dbp-card-top">
-          ${imgHtml}${placeholderHtml}
-          <div class="dbp-info">
-            <div class="dbp-name">${escapeHtml(r.nombre)}</div>
-            <span class="dbp-type">DBpedia · Electrodoméstico</span>
-            <p class="dbp-abstract">${desc}</p>
-          </div>
-        </div>
-        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;">
-          ${r.wikiPage    ? `<a class="dbp-link" href="${r.wikiPage}" target="_blank" rel="noopener">🌐 Ver en Wikipedia</a>` : ''}
-          ${r.dbpediaLink ? `<a class="dbp-link" style="border-color:rgba(124,106,247,0.3);color:var(--accent)" href="${r.dbpediaLink}" target="_blank" rel="noopener">◈ Recurso DBpedia (RDF)</a>` : ''}
-        </div>
-      </div>`;
-  }).join('');
 }
 
 // ══════════════════════════════════════════════
@@ -675,3 +592,6 @@ function escapeHtml(s) {
     .replace(/&/g,'&amp;').replace(/</g,'&lt;')
     .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+
+// Exponer para uso inline (onclick en HTML generado dinámicamente)
+window.guardarEnOntologia = guardarEnOntologia;
