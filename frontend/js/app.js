@@ -13,36 +13,36 @@ let currentLanguage = 'es';
 function initLanguage() {
   // 1. Leer localStorage primero
   const savedLang = localStorage.getItem('language');
-  if (savedLang && ['es', 'en'].includes(savedLang)) {
+  if (savedLang && SUPPORTED_LANGS.includes(savedLang)) {
     currentLanguage = savedLang;
   } else {
     // 2. Detectar idioma del navegador
-    const navLang = navigator.language || navigator.userLanguage;
+    const navLang = (navigator.language || navigator.userLanguage || 'es').toLowerCase();
     if (navLang.startsWith('en')) {
       currentLanguage = 'en';
+    } else if (navLang.startsWith('pt')) {
+      currentLanguage = 'pt';
     } else {
-      currentLanguage = 'es'; // Default a español
+      currentLanguage = 'es';
     }
     localStorage.setItem('language', currentLanguage);
   }
 
   // 3. Actualizar UI
-  updateLanguageButton();
+  const select = document.getElementById('langSelect');
+  if (select) select.value = currentLanguage;
   translateDOM(currentLanguage);
 }
 
-function toggleLanguage() {
-  currentLanguage = currentLanguage === 'es' ? 'en' : 'es';
-  localStorage.setItem('language', currentLanguage);
-  updateLanguageButton();
-  translateDOM(currentLanguage);
-  buscarUnificado(); // Re-buscar con nuevo idioma
-}
-
-function updateLanguageButton() {
-  const btn = document.getElementById('langToggle');
-  if (btn) {
-    btn.textContent = currentLanguage === 'es' ? 'EN' : 'ES';
+function changeLanguage(lang) {
+  if (SUPPORTED_LANGS.includes(lang)) {
+    currentLanguage = lang;
+    localStorage.setItem('language', currentLanguage);
+    translateDOM(currentLanguage);
+    // Re-renderizar filtros/chips de clase con el nuevo idioma
+    if (ontologiaCargada) cargarEstadisticas();
+    // Re-buscar con nuevo idioma si hay una búsqueda activa
+    if (typeof buscarUnificado === 'function') buscarUnificado();
   }
 }
 
@@ -105,9 +105,9 @@ async function verificarBackend() {
     document.getElementById('loaderSection').innerHTML = `
       <div class="search-section" style="max-width:500px; margin:0 auto; text-align:center;">
         <span style="font-size:36px; display:block; margin-bottom:12px;">⚠️</span>
-        <p style="color:var(--text); font-weight:700; margin-bottom:8px;">Backend no encontrado</p>
+        <p style="color:var(--text); font-weight:700; margin-bottom:8px;">${t('backend.notfound')}</p>
         <p style="color:var(--muted); font-size:12px; font-family:'Space Mono',monospace;">
-          Ejecuta en tu terminal:<br><br>
+          ${t('backend.run.terminal')}<br><br>
           <code style="color:var(--accent3)">cd backend</code><br>
           <code style="color:var(--accent3)">python server.py</code>
         </p>
@@ -136,7 +136,7 @@ async function handleFile(file) {
     <div style="padding:60px 0; text-align:center;">
       <div class="spinner"></div>
       <p style="color:var(--muted); font-family:'Space Mono',monospace; font-size:12px;">
-        Cargando ontología con RDFLib...
+        ${t('loader.loading.rdflib')}
       </p>
     </div>`;
 
@@ -156,16 +156,19 @@ async function handleFile(file) {
       await cargarEstadisticas();
       renderApp();
     } else {
-      document.getElementById('loaderSection').innerHTML = `
-        <div style="text-align:center; padding:40px;">
-          <p style="color:#ff6b6b;">Error: ${escapeHtml(data.error)}</p>
-        </div>`;
-    }
+      document.getElementById('statusText').innerHTML = `
+        ${t('loader.loading.rdflib')}
+        <div style="font-size:12px;opacity:0.7;margin-top:4px">
+          ${file.name} (${(file.size/1024).toFixed(1)} KB)
+        </div>
+      `;}
   } catch(e) {
-    document.getElementById('loaderSection').innerHTML = `
-      <div style="text-align:center; padding:40px;">
-        <p style="color:#ff6b6b;">No se pudo conectar al backend: ${escapeHtml(e.message)}</p>
-      </div>`;
+    document.getElementById('statusText').innerHTML = `
+      <span style="color:var(--error)">✗ ${t('backend.notfound')}</span>
+      <div style="font-size:12px; opacity:0.8; margin-top:8px">
+        ${t('backend.run.terminal')} <code style="background:rgba(0,0,0,0.2);padding:2px 6px;border-radius:4px">python server.py</code>
+      </div>
+    `;
   }
 }
 
@@ -197,19 +200,19 @@ async function cargarEstadisticas() {
         .filter(c => c.total > 0 && !['Thing','NamedIndividual'].includes(c.clase))
         .slice(0, 20);
 
-      // Botones de filtro por clase
-      document.getElementById('filterBtns').innerHTML = clasesConIndividuos.map(c =>
-        `<button class="filter-btn" onclick="setFilter('${escapeAttr(c.clase)}', this)">
-           ${escapeHtml(c.clase)} <span style="opacity:0.5">(${c.total})</span>
-         </button>`
-      ).join('');
+      document.getElementById('filterBtns').innerHTML = clasesConIndividuos.map(c => {
+        const claseLabel = tp('clase.' + c.clase) || escapeHtml(c.clase);
+        return `<button class="filter-btn" onclick="setFilter('${escapeAttr(c.clase)}', this)">
+           ${claseLabel} <span style="opacity:0.5">(${c.total})</span>
+         </button>`;
+      }).join('');
 
-      // Explorador de ontología (chips clickeables)
-      document.getElementById('classGrid').innerHTML = clasesConIndividuos.map(c =>
-        `<div class="class-chip" onclick="searchByClass('${escapeAttr(c.clase)}')">
-           ${escapeHtml(c.clase)}<span class="count">${c.total}</span>
-         </div>`
-      ).join('');
+      document.getElementById('classGrid').innerHTML = clasesConIndividuos.map(c => {
+        const claseLabel = tp('clase.' + c.clase) || escapeHtml(c.clase);
+        return `<div class="class-chip" onclick="searchByClass('${escapeAttr(c.clase)}')">
+           ${claseLabel}<span class="count">${c.total}</span>
+         </div>`;
+      }).join('');
     }
   } catch(e) {
     console.error('Error cargando estadísticas:', e);
@@ -230,8 +233,8 @@ function renderApp() {
 // ══════════════════════════════════════════════
 function buildSPARQLQuery(term, claseFilter) {
   const base = 'http://www.umss.edu.bo/ontologias/electrodomesticos.owl#';
-  let q = `<span class="comment"># MetaBuscador Semántico — RDFLib + SPARQL</span>\n`;
-  q += `<span class="comment"># Ejecutado por: Python RDFLib en el backend</span>\n\n`;
+  let q = `<span class="comment">${t('sparql.comment.local') || '# MetaBuscador Semántico — RDFLib + SPARQL'}</span>\n`;
+  q += `<span class="comment">${t('sparql.comment.local.executor') || '# Ejecutado por: Python RDFLib en el backend'}</span>\n\n`;
   q += `<span class="kw">PREFIX</span> : &lt;${base}&gt;\n`;
   q += `<span class="kw">PREFIX</span> rdf:  &lt;http://www.w3.org/1999/02/22-rdf-syntax-ns#&gt;\n`;
   q += `<span class="kw">PREFIX</span> rdfs: &lt;http://www.w3.org/2000/01/rdf-schema#&gt;\n`;
@@ -299,7 +302,7 @@ async function buscarUnificado() {
   const countEl   = document.getElementById('unifiedResultsCount');
 
   // Indicador de carga
-  container.innerHTML = `<div style="grid-column: 1 / -1; text-align:center; padding:60px;"><div class="spinner"></div><p style="margin-top:15px; color:var(--accent);">${t('search.loading.local') || 'Buscando...'}</p></div>`;
+  container.innerHTML = `<div style="grid-column: 1 / -1; text-align:center; padding:60px;"><div class="spinner"></div><p style="margin-top:15px; color:var(--accent);">${t('search.loading.local')}</p></div>`;
   countEl.innerHTML = '';
   document.getElementById('dbpEndpointStatus').textContent = '';
 
@@ -338,7 +341,7 @@ async function buscarUnificado() {
     renderGroupedResults(groups, searchTerms.length > 1);
 
   } catch(error) {
-    container.innerHTML = `<div class="state-msg" style="grid-column: 1 / -1;"><span class="icon">⚠️</span><h3>${t('error.network') || 'Error de red'}</h3><p>${escapeHtml(error.message)}</p></div>`;
+    container.innerHTML = `<div class="state-msg" style="grid-column: 1 / -1;"><span class="icon">⚠️</span><h3>${t('error.network')}</h3><p>${escapeHtml(error.message)}</p></div>`;
   }
 }
 
@@ -410,15 +413,17 @@ function generateLocalCardsHtml(items, tokens) {
 
     const propsHtml = shownProps.map(p => {
       let val = props[p], valClass = '';
-      if (val === 'true')  { val = '✓ Sí'; valClass = 'bool-true'; }
-      if (val === 'false') { val = '✗ No'; valClass = 'bool-false'; }
+      if (val === 'true')  { val = tp('bool.true');  valClass = 'bool-true'; }
+      if (val === 'false') { val = tp('bool.false'); valClass = 'bool-false'; }
       return `<div class="prop-item">
-        <span class="prop-key">${p.replace(/_/g,' ')}</span>
+        <span class="prop-key">${tp(p)}</span>
         <span class="prop-val ${valClass}">${escapeHtml(String(val))}</span>
       </div>`;
     }).join('');
 
     const nombre = highlightTokens(escapeHtml(ind.nombre), tokens);
+    // Clase traducida para el badge
+    const claseTraducida = tp('clase.' + ind.clase) || escapeHtml(ind.clase);
 
     return `
       <div class="result-card" onclick='showDetail(${JSON.stringify(ind).replace(/'/g, "&#39;")})'>
@@ -426,7 +431,7 @@ function generateLocalCardsHtml(items, tokens) {
           <div class="card-name">${nombre}</div>
           <div class="card-badges">
             <span class="source-badge source-local">🏠 Local</span>
-            <div class="card-class">${escapeHtml(ind.clase)}</div>
+            <div class="card-class">${claseTraducida}</div>
           </div>
         </div>
         ${propsHtml
@@ -449,13 +454,12 @@ function generateDbpCardsHtml(items) {
       const text = r.descripcion.length > 120 ? r.descripcion.slice(0, 120) + '...' : r.descripcion;
       descHtml = `<p class="dbp-abstract" id="${descId}">${text}</p>`;
     } else if (r.wikiPage) {
-      // Trigger Wikipedia fallback
       descHtml = `<p class="dbp-abstract" id="${descId}">
-                    <span style="opacity:0.6; font-size:11px;">${t('dbpedia.loading.desc') || 'Cargando descripción...'}</span>
+                    <span style="opacity:0.6; font-size:11px;">${t('dbpedia.loading.desc')}</span>
                   </p>`;
       fetchWikipediaDesc(r.wikiPage, descId);
     } else {
-      descHtml = `<p class="dbp-abstract" id="${descId}"><em style="opacity:0.5">${t('dbpedia.no.description') || 'Sin descripción'}</em></p>`;
+      descHtml = `<p class="dbp-abstract" id="${descId}"><em style="opacity:0.5">${t('dbpedia.no.description')}</em></p>`;
     }
 
     const imgHtml = r.imagen
@@ -578,16 +582,19 @@ function renderGroupedResults(groups, isMultiSearch) {
 // ══════════════════════════════════════════════
 function showDetail(ind) {
   document.getElementById('modalName').textContent  = ind.nombre;
-  document.getElementById('modalClass').innerHTML   = `<span class="card-class">${escapeHtml(ind.clase)}</span>`;
+  // Clase traducida en el modal
+  const claseTraducida = tp('clase.' + ind.clase) || escapeHtml(ind.clase);
+  document.getElementById('modalClass').innerHTML   = `<span class="card-class">${claseTraducida}</span>`;
   const props = Object.entries(ind.propiedades || {});
   document.getElementById('modalProps').innerHTML   = props.length === 0
-    ? '<p style="color:var(--muted);font-family:Space Mono,monospace;font-size:12px;">Sin propiedades registradas</p>'
+    ? `<p style="color:var(--muted);font-family:Space Mono,monospace;font-size:12px;">${t('modal.no.properties')}</p>`
     : props.map(([k, v]) => {
         let val = v, color = '';
-        if (val === 'true')  { val = '✓ Sí'; color = 'color:var(--success)'; }
-        if (val === 'false') { val = '✗ No'; color = 'color:#ff6b6b'; }
+        if (val === 'true')  { val = tp('bool.true');  color = 'color:var(--success)'; }
+        if (val === 'false') { val = tp('bool.false'); color = 'color:#ff6b6b'; }
+        const propKey = k.replace(/_/g,' ');
         return `<div class="modal-prop">
-          <span class="modal-prop-key">${escapeHtml(k.replace(/_/g,' '))}</span>
+          <span class="modal-prop-key">${tp(propKey)}</span>
           <span class="modal-prop-val" style="${color}">${escapeHtml(String(val))}</span>
         </div>`;
       }).join('');
@@ -606,13 +613,13 @@ function toggleSparql() {
   const body   = document.getElementById('sparqlBody');
   const toggle = document.getElementById('sparqlToggle');
   const open   = body.classList.toggle('open');
-  toggle.textContent = open ? '▼ ocultar' : '▶ ver';
+  toggle.textContent = open ? t('sparql.toggle.hide') : t('sparql.toggle.show.text');
 }
 function toggleDbpSparql() {
   const body   = document.getElementById('dbpSparqlBody');
   const toggle = document.getElementById('dbpSparqlToggle');
   const open   = body.classList.toggle('open');
-  toggle.textContent = open ? '▼ ocultar' : '▶ ver';
+  toggle.textContent = open ? t('sparql.toggle.hide') : t('sparql.toggle.show.text');
 }
 
 // ══════════════════════════════════════════════

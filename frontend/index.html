@@ -10,10 +10,13 @@
 <body>
 
 <div class="container">
-  <div style="display: flex; gap: 12px; position: absolute; top: 20px; right: 20px;">
-    <button id="langToggle" class="theme-toggle" title="Toggle language" style="padding: 8px 12px; font-size: 14px; background: var(--bg-secondary); border: 1px solid var(--border); cursor: pointer; border-radius: 8px; color: var(--text);">
-      <span id="langText">ES/EN</span>
-    </button>
+  <div class="controls-bar">
+    <select id="langSelect" class="lang-select" onchange="changeLanguage(this.value)" title="Cambiar idioma / Change language">
+      <option value="es">🇪🇸 Español</option>
+      <option value="en">🇬🇧 English</option>
+      <option value="pt">🇧🇷 Português</option>
+      <option value="fr">🇫🇷 Français</option>
+    </select>
     <button id="themeToggle" class="theme-toggle" onclick="toggleTheme()">🌞</button>
   </div>
 
@@ -79,7 +82,9 @@
       <div class="search-row">
         <div class="search-input-wrap">
           <span class="search-icon">🔎</span>
-          <input id="searchInput" type="text" data-placeholder="search.placeholder"
+          <input id="searchInput" type="text"
+            data-i18n="search.placeholder"
+            data-placeholder="search.placeholder"
             placeholder="Busca ej. 'samsung, lavadora, licuadora'... (separado por comas)"/>
         </div>
         <button class="btn-search" onclick="buscarUnificado()" data-i18n="search.button">Búsqueda Federada</button>

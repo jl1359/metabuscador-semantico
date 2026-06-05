@@ -1,6 +1,7 @@
 /**
  * SISTEMA DE TRADUCCIONES — MetaBuscador Semántico
- * Multilingualidad: Español (ES) e Inglés (EN)
+ * Multilingualidad: Español (ES) · Inglés (EN) · Portugués (PT)
+ * Implementación: Internacionalización (i18n) — doc. 4.1 Multilingualidad
  */
 
 const i18n = {
@@ -83,7 +84,7 @@ const i18n = {
     // ══ DBPEDIA CARDS ══
     'dbpedia.link.wikipedia': '🌐 Ver en Wikipedia',
     'dbpedia.link.resource': '◈ Recurso DBpedia',
-    'dbpedia.button.save': '💾 Guardar en Local',
+    'dbpedia.button.save': '💾 Guardar en mi Ontología Local',
     'dbpedia.button.saving': '⏳ Guardando...',
     'dbpedia.button.saved': '✅ ¡Guardado!',
     'dbpedia.button.error': '❌ Error',
@@ -119,6 +120,90 @@ const i18n = {
     'language.selector': 'Idioma',
     'language.es': 'Español',
     'language.en': 'English',
+    'language.pt': 'Português',
+
+    // ══ MENSAJES HARDCODEADOS (backend / carga) ══
+    'backend.notfound': 'Backend no encontrado',
+    'backend.run.terminal': 'Ejecuta en tu terminal:',
+    'loader.loading.rdflib': 'Cargando ontología con RDFLib...',
+    'error.load.file': 'Error al cargar el archivo:',
+    'error.connect.backend': 'No se pudo conectar al backend:',
+    'sparql.toggle.hide': '▼ ocultar',
+    'sparql.toggle.show.text': '▶ ver',
+    'dbpedia.loading.desc': 'Cargando descripción...',
+    'search.loading': 'Buscando...',
+  },
+
+  fr: {
+    // ══ HEADER & BRANDING ══
+    'header.badge': 'Web Sémantique · UMSS',
+    'header.title': 'Moteur de Recherche Sémantique',
+    'header.subtitle': 'Ontologie d\'Appareils Électroménagers · ',
+    'header.tech': 'OWL + SPARQL',
+
+    // ══ STATISTICS ══
+    'stats.individuals': 'Individus',
+    'stats.triples': 'Triplets RDF',
+
+    // ══ SEARCH AREA ══
+    'search.placeholder': 'Rechercher par ex. "samsung, lave-linge, mixeur"...',
+    'search.button': 'Recherche Fédérée',
+    'search.button.local': 'Recherche Locale',
+
+    // ══ SETTINGS & PANELS ══
+    'settings.title': 'Paramètres de Recherche',
+    'settings.local.desc': 'Requêtes SPARQL vers l\'ontologie locale',
+    'settings.dbpedia.desc': 'Requêtes SPARQL vers l\'endpoint public DBpedia',
+    'settings.visualize': 'Explorer l\'Ontologie',
+
+    // ══ FILTERS ══
+    'filters.class': 'Filtres par Classe',
+    'filters.properties': 'Filtres par Propriétés',
+    'filters.clear': 'Effacer les filtres',
+    'filters.apply': 'Appliquer les filtres',
+
+    // ══ RESULTS AREA ══
+    'results.empty': 'Aucun résultat trouvé pour cette recherche.',
+    'results.local.title': 'Résultats Locaux (Ontologie)',
+    'results.dbpedia.title': 'Résultats DBpedia',
+
+    // ══ MODALS & DETAILS ══
+    'modal.close': 'Fermer',
+    'modal.properties': 'Propriétés',
+    'modal.no.properties': 'Aucune propriété enregistrée pour cet individu.',
+    'modal.source': 'Source: Locale',
+
+    // ══ DBPEDIA CARD ══
+    'dbpedia.abstract': 'Description :',
+    'dbpedia.link': 'Voir dans DBpedia',
+    'dbpedia.wiki': 'Voir sur Wikipédia',
+
+    // ══ TOASTS / ALERTS ══
+    'toast.error': 'Erreur',
+    'toast.success': 'Succès',
+    'toast.backend.error': 'Le backend ne répond pas. Vérifiez que server.py est en cours d\'exécution.',
+
+    // ══ SELETOR DE IDIOMA ══
+    'language.selector': 'Langue',
+    'language.es': 'Español',
+    'language.en': 'English',
+    'language.pt': 'Português',
+    'language.fr': 'Français',
+
+    // ══ MENSAGENS HARDCODED (backend / carregamento) ══
+    'backend.notfound': 'Backend introuvable',
+    'backend.run.terminal': 'Exécutez dans votre terminal:',
+    'loader.loading.rdflib': 'Chargement de l\'ontologie avec RDFLib...',
+    'error.load.file': 'Erreur de chargement du fichier :',
+    'error.connect.backend': 'Impossible de se connecter au backend :',
+    'sparql.toggle.hide': '▼ cacher',
+    'sparql.toggle.show.text': '▶ voir',
+    'dbpedia.loading.desc': 'Chargement de la description...',
+    'search.loading': 'Recherche en cours...',
+    'dbpedia.button.save': '💾 Sauvegarder dans mon Ontologie Locale',
+    'dbpedia.button.saving': '⏳ Sauvegarde...',
+    'dbpedia.button.saved': '✅ Sauvegardé !',
+    'dbpedia.button.error': '❌ Erreur',
   },
 
   en: {
@@ -200,7 +285,7 @@ const i18n = {
     // ══ DBPEDIA CARDS ══
     'dbpedia.link.wikipedia': '🌐 View on Wikipedia',
     'dbpedia.link.resource': '◈ DBpedia Resource',
-    'dbpedia.button.save': '💾 Save to Local',
+    'dbpedia.button.save': '💾 Save to my Local Ontology',
     'dbpedia.button.saving': '⏳ Saving...',
     'dbpedia.button.saved': '✅ Saved!',
     'dbpedia.button.error': '❌ Error',
@@ -236,6 +321,153 @@ const i18n = {
     'language.selector': 'Language',
     'language.es': 'Español',
     'language.en': 'English',
+    'language.pt': 'Português',
+    'language.fr': 'Français',
+
+    // ══ HARDCODED MESSAGES (backend / loading) ══
+    'backend.notfound': 'Backend not found',
+    'backend.run.terminal': 'Run in your terminal:',
+    'loader.loading.rdflib': 'Loading ontology with RDFLib...',
+    'error.load.file': 'Error loading file:',
+    'error.connect.backend': 'Could not connect to backend:',
+    'sparql.toggle.hide': '▼ hide',
+    'sparql.toggle.show.text': '▶ view',
+    'dbpedia.loading.desc': 'Loading description...',
+    'search.loading': 'Searching...',
+  },
+
+  // ══════════════════════════════════════════════════════════════════
+  // PORTUGUÊS (PT) — 3º idioma · Internacionalização
+  // Doc. 4.1 Multilingualidade: Nivel 1 - Interfaz
+  // ══════════════════════════════════════════════════════════════════
+  pt: {
+    // ══ CABEÇALHO & BRANDING ══
+    'header.badge': 'Web Semântica · UMSS',
+    'header.title': 'MetaBuscador Semântico',
+    'header.subtitle': 'Ontologia de Eletrodomésticos · ',
+    'header.tech': 'OWL + SPARQL',
+
+    // ══ ESTATÍSTICAS ══
+    'stats.individuals': 'Indivíduos',
+    'stats.classes': 'Classes',
+    'stats.properties': 'Propriedades',
+    'stats.triples': 'Triplas RDF',
+
+    // ══ CARREGADOR DE ONTOLOGIA ══
+    'loader.title': 'Carregar Ontologia OWL',
+    'loader.drag': 'Arraste seu arquivo .owx / .owl / .rdf',
+    'loader.click': 'ou clique para selecionar',
+    'loader.note': 'Arquivo processado no backend · RDFLib + owlready2',
+    'loader.loading': 'Carregando ontologia com RDFLib...',
+    'loader.error.notfound': 'Backend não encontrado',
+    'loader.error.terminal': 'Execute no seu terminal:',
+
+    // ══ BUSCA ══
+    'search.placeholder': 'Busque ex. \'samsung, geladeira, liquidificador\'... (separado por vírgulas)',
+    'search.button': 'Busca Federada',
+    'search.loading.local': 'Buscando na ontologia local...',
+    'search.loading.dbpedia': 'Consultando DBpedia...',
+
+    // ══ ABAS / TABS ══
+    'tabs.local': '🗂 Busca Local',
+    'tabs.local.badge': 'OWL',
+    'tabs.dbpedia': '🌐 DBpedia',
+    'tabs.dbpedia.badge': 'SPARQL Remoto',
+
+    // ══ PAINEL SPARQL ══
+    'sparql.local': 'Consulta SPARQL · Local',
+    'sparql.dbpedia': 'Consulta SPARQL · DBpedia',
+    'sparql.toggle.show': '▶ ver',
+    'sparql.toggle.hide': '▼ ocultar',
+
+    // ══ RESULTADOS ══
+    'results.unified': '🎯 Resultados da Busca',
+    'results.local': '🏠 Resultados Locais',
+    'results.dbpedia': '🌐 DBpedia',
+    'results.ready': 'Pronto para buscar',
+    'results.ready.hint': 'Digite algo acima ou selecione uma classe',
+    'results.empty': 'Sem resultados',
+    'results.empty.local': 'Nenhuma correspondência encontrada para',
+    'results.empty.dbpedia': 'Sem resultados no DBpedia',
+    'results.empty.dbpedia.hint': 'Tente: "geladeira", "máquina de lavar", "micro-ondas"',
+    'results.count': 'resultado',
+    'results.count.plural': 'resultados',
+    'results.showing': 'Mostrando',
+    'results.of': 'de',
+    'results.refine': 'Refine sua busca.',
+    'results.source.local': 'RDFLib SPARQL local',
+    'results.source.dbpedia': 'DBpedia SPARQL remoto',
+
+    // ══ DETALHE / MODAL ══
+    'modal.properties': 'Propriedades',
+    'modal.no.properties': 'Sem propriedades registradas',
+
+    // ══ EXPLORADOR DE ONTOLOGIA ══
+    'explorer.title': 'Explorador de Ontologia',
+
+    // ══ ERROS ══
+    'error.title': 'Erro',
+    'error.connection': 'Erro de conexão local:',
+    'error.network': 'Erro de rede',
+    'error.sparql': 'Erro ao executar SPARQL:',
+    'error.backend': 'Não foi possível conectar ao backend:',
+    'error.dbpedia.title': 'Erro DBpedia',
+    'error.dbpedia': 'Erro ao consultar DBpedia',
+    'error.ontology.notloaded': 'Ontologia não carregada',
+    'error.file': 'Nenhum arquivo recebido',
+
+    // ══ CARDS DBPEDIA ══
+    'dbpedia.link.wikipedia': '🌐 Ver na Wikipedia',
+    'dbpedia.link.resource': '◈ Recurso DBpedia',
+    'dbpedia.button.save': '💾 Salvar na minha Ontologia Local',
+    'dbpedia.button.saving': '⏳ Salvando...',
+    'dbpedia.button.saved': '✅ Salvo!',
+    'dbpedia.button.error': '❌ Erro',
+    'dbpedia.button.network.error': '❌ Erro de rede',
+    'dbpedia.type': 'DBpedia · Eletrodoméstico',
+    'dbpedia.no.description': 'Sem descrição disponível.',
+    'dbpedia.status': 'dbpedia.org/sparql · SPARQLWrapper',
+    'dbpedia.knowledge.base': 'Base de Conhecimento Remota',
+    'dbpedia.results.message': 'Os resultados do DBpedia aparecerão aqui',
+    'dbpedia.endpoint': 'Endpoint: dbpedia.org/sparql · SPARQLWrapper',
+
+    // ══ RODAPÉ ══
+    'footer.text': 'MetaBuscador Semântico · ',
+    'footer.highlight': 'Ontologia OWL de Eletrodomésticos',
+    'footer.year': 'UMSS Web Semântica 2025',
+    'footer.tech': 'HTML5 · OWL / RDF / SPARQL · Busca Fuzzy · RDFLib + owlready2 · SPARQLWrapper',
+
+    // ══ ALERTAS & CONFIRMAÇÕES ══
+    'alert.save.error': 'Erro ao salvar:',
+    'alert.network.error': 'Erro de rede:',
+
+    // ══ COMENTÁRIOS SPARQL ══
+    'sparql.comment.local': '# MetaBuscador Semântico — RDFLib + SPARQL',
+    'sparql.comment.local.executor': '# Executado por: Python RDFLib no backend',
+    'sparql.comment.local.multiple': '# Busca múltipla (OR)',
+    'sparql.comment.local.semantic': '# Busca semântica fuzzy',
+    'sparql.comment.local.filter': '# Filtro por classe selecionada',
+
+    'sparql.comment.dbpedia': '# BC Remota — DBpedia SPARQL',
+    'sparql.comment.dbpedia.endpoint': '# Endpoint: https://dbpedia.org/sparql',
+
+    // ══ SELETOR DE IDIOMA ══
+    'language.selector': 'Idioma',
+    'language.es': 'Español',
+    'language.en': 'English',
+    'language.pt': 'Português',
+    'language.fr': 'Français',
+
+    // ══ MENSAGENS HARDCODED (backend / carregamento) ══
+    'backend.notfound': 'Backend não encontrado',
+    'backend.run.terminal': 'Execute no seu terminal:',
+    'loader.loading.rdflib': 'Carregando ontologia com RDFLib...',
+    'error.load.file': 'Erro ao carregar o arquivo:',
+    'error.connect.backend': 'Não foi possível conectar ao backend:',
+    'sparql.toggle.hide': '▼ ocultar',
+    'sparql.toggle.show.text': '▶ ver',
+    'dbpedia.loading.desc': 'Carregando descrição...',
+    'search.loading': 'Buscando...',
   }
 };
 
@@ -244,6 +476,201 @@ const i18n = {
 // ═══════════════════════════════════════════════════════════════════
 function t(key, lang = currentLanguage || 'es') {
   return i18n[lang]?.[key] || i18n['es'][key] || key;
+}
+
+// Lista de idiomas soportados
+const SUPPORTED_LANGS = ['es', 'en', 'pt', 'fr'];
+
+// ═══════════════════════════════════════════════════════════════════
+// TRADUCCIONES DE DATA PROPERTIES Y CLASES DE ONTOLOGÍA
+// Doc. 4.1 Nivel 1(b): mostrar contenido en el idioma seleccionado
+// ═══════════════════════════════════════════════════════════════════
+const propLabels = {
+  es: {
+    // Propiedades numéricas / técnicas
+    'consumo potencia':       'Consumo Potencia',
+    'capacidad litros':       'Capacidad (litros)',
+    'capacidad lavado':       'Cap. Lavado (kg)',
+    'capacidad refrigeracion':'Cap. Refrigeración',
+    'eficiencia energetica':  'Eficiencia Energética',
+    'tamano pantalla':        'Tamaño Pantalla',
+    'voltaje aparato':        'Voltaje (V)',
+    'peso aparato':           'Peso (kg)',
+    'numero hornillas':       'N° Hornillas',
+    'capacidad tazas':        'Cap. Tazas',
+    'capacidad carga':        'Cap. Carga',
+    'rpm centrifugado':       'RPM Centrifugado',
+    'potencia microondas':    'Potencia Microondas',
+    'area cobertura':         'Área Cobertura',
+    'numero velocidades':     'N° Velocidades',
+    'memoria ram':            'Memoria RAM',
+    'almacenamiento interno': 'Almacenamiento',
+    'capacidad congelacion':  'Cap. Congelación',
+    'vida util estimada':     'Vida Útil (hrs)',
+    // Propiedades booleanas / categóricas
+    'tecnologia inverter':    'Tecnología Inverter',
+    'tv smart':               'Smart TV',
+    'portable':               'Portátil',
+    'conectividad red':       'Conectividad Red',
+    // Propiedades objeto (info)
+    'fabricado por':          'Fabricado por',
+    'tiene componente':       'Componente',
+    'pais origen marca':      'País de Origen',
+    'ano creacion marca':     'Año de Creación',
+    // Booleanos
+    'bool.true':  '✓ Sí',
+    'bool.false': '✗ No',
+    // Clases de ontología
+    'clase.Refrigerador':      'Refrigerador',
+    'clase.Lavadora':          'Lavadora',
+    'clase.Televisor':         'Televisor',
+    'clase.Computadora':       'Computadora',
+    'clase.Microondas':        'Microondas',
+    'clase.Aspiradora':        'Aspiradora',
+    'clase.Licuadora':         'Licuadora',
+    'clase.Cafetera':          'Cafetera',
+    'clase.Aire Acondicionado':'Aire Acondicionado',
+    'clase.Horno':             'Horno',
+    'clase.Sensor':            'Sensor',
+    'clase.Marca':             'Marca',
+  },
+  en: {
+    'consumo potencia':       'Power Consumption',
+    'capacidad litros':       'Capacity (liters)',
+    'capacidad lavado':       'Wash Capacity (kg)',
+    'capacidad refrigeracion':'Cooling Capacity',
+    'eficiencia energetica':  'Energy Efficiency',
+    'tamano pantalla':        'Screen Size',
+    'voltaje aparato':        'Voltage (V)',
+    'peso aparato':           'Weight (kg)',
+    'numero hornillas':       'No. Burners',
+    'capacidad tazas':        'Cup Capacity',
+    'capacidad carga':        'Load Capacity',
+    'rpm centrifugado':       'Spin Speed (RPM)',
+    'potencia microondas':    'Microwave Power',
+    'area cobertura':         'Coverage Area',
+    'numero velocidades':     'No. Speeds',
+    'memoria ram':            'RAM Memory',
+    'almacenamiento interno': 'Storage',
+    'capacidad congelacion':  'Freezing Capacity',
+    'vida util estimada':     'Lifespan (hrs)',
+    'tecnologia inverter':    'Inverter Technology',
+    'tv smart':               'Smart TV',
+    'portable':               'Portable',
+    'conectividad red':       'Network Connectivity',
+    'fabricado por':          'Manufactured by',
+    'tiene componente':       'Component',
+    'pais origen marca':      'Country of Origin',
+    'ano creacion marca':     'Brand Founded',
+    'bool.true':  '✓ Yes',
+    'bool.false': '✗ No',
+    'clase.Refrigerador':      'Refrigerator',
+    'clase.Lavadora':          'Washing Machine',
+    'clase.Televisor':         'Television',
+    'clase.Computadora':       'Computer',
+    'clase.Microondas':        'Microwave',
+    'clase.Aspiradora':        'Vacuum Cleaner',
+    'clase.Licuadora':         'Blender',
+    'clase.Cafetera':          'Coffee Maker',
+    'clase.Aire Acondicionado':'Air Conditioner',
+    'clase.Horno':             'Oven',
+    'clase.Sensor':            'Sensor',
+    'clase.Marca':             'Brand',
+  },
+  pt: {
+    'consumo potencia':       'Consumo de Energia',
+    'capacidad litros':       'Capacidade (litros)',
+    'capacidad lavado':       'Cap. Lavagem (kg)',
+    'capacidad refrigeracion':'Cap. Refrigeração',
+    'eficiencia energetica':  'Eficiência Energética',
+    'tamano pantalla':        'Tamanho da Tela',
+    'voltaje aparato':        'Voltagem (V)',
+    'peso aparato':           'Peso (kg)',
+    'numero hornillas':       'Nº Queimadores',
+    'capacidad tazas':        'Cap. Xícaras',
+    'capacidad carga':        'Cap. de Carga',
+    'rpm centrifugado':       'Centrifugação (RPM)',
+    'potencia microondas':    'Potência Micro-ondas',
+    'area cobertura':         'Área de Cobertura',
+    'numero velocidades':     'Nº Velocidades',
+    'memoria ram':            'Memória RAM',
+    'almacenamiento interno': 'Armazenamento',
+    'capacidad congelacion':  'Cap. Congelamento',
+    'vida util estimada':     'Vida Útil (hrs)',
+    'tecnologia inverter':    'Tecnologia Inverter',
+    'tv smart':               'Smart TV',
+    'portable':               'Portátil',
+    'conectividad red':       'Conectividade de Rede',
+    'fabricado por':          'Fabricado por',
+    'tiene componente':       'Componente',
+    'pais origen marca':      'País de Origem',
+    'ano creacion marca':     'Ano de Fundação',
+    'bool.true':  '✓ Sim',
+    'bool.false': '✗ Não',
+    'clase.Refrigerador':      'Geladeira',
+    'clase.Lavadora':          'Máquina de Lavar',
+    'clase.Televisor':         'Televisão',
+    'clase.Computadora':       'Computador',
+    'clase.Microondas':        'Micro-ondas',
+    'clase.Aspiradora':        'Aspirador de Pó',
+    'clase.Licuadora':         'Liquidificador',
+    'clase.Cafetera':          'Cafeteira',
+    'clase.Aire Acondicionado':'Ar Condicionado',
+    'clase.Horno':             'Forno',
+    'clase.Sensor':            'Sensor',
+    'clase.Marca':             'Marca',
+  },
+  fr: {
+    'consumo potencia':       'Consommation Électrique',
+    'capacidad litros':       'Capacité (litres)',
+    'capacidad lavado':       'Capacité de Lavage (kg)',
+    'capacidad refrigeracion':'Capacité de Refroidissement',
+    'eficiencia energetica':  'Efficacité Énergétique',
+    'tamano pantalla':        'Taille de l\'Écran',
+    'voltaje aparato':        'Tension (V)',
+    'peso aparato':           'Poids (kg)',
+    'numero hornillas':       'Nb Brûleurs',
+    'capacidad tazas':        'Capacité en Tasses',
+    'capacidad carga':        'Capacité de Charge',
+    'rpm centrifugado':       'Vitesse d\'Essorage (RPM)',
+    'potencia microondas':    'Puissance Micro-ondes',
+    'area cobertura':         'Zone de Couverture',
+    'numero velocidades':     'Nb Vitesses',
+    'memoria ram':            'Mémoire RAM',
+    'almacenamiento interno': 'Stockage',
+    'capacidad congelacion':  'Capacité de Congélation',
+    'vida util estimada':     'Durée de Vie (hrs)',
+    'tecnologia inverter':    'Technologie Inverter',
+    'tv smart':               'Smart TV',
+    'portable':               'Portable',
+    'conectividad red':       'Connectivité Réseau',
+    'fabricado por':          'Fabriqué par',
+    'tiene componente':       'Composant',
+    'pais origen marca':      'Pays d\'Origine',
+    'ano creacion marca':     'Année de Création',
+    'bool.true':  '✓ Oui',
+    'bool.false': '✗ Non',
+    'clase.Refrigerador':      'Réfrigérateur',
+    'clase.Lavadora':          'Machine à Laver',
+    'clase.Televisor':         'Téléviseur',
+    'clase.Computadora':       'Ordinateur',
+    'clase.Microondas':        'Micro-ondes',
+    'clase.Aspiradora':        'Aspirateur',
+    'clase.Licuadora':         'Mixeur',
+    'clase.Cafetera':          'Cafetière',
+    'clase.Aire Acondicionado':'Climatiseur',
+    'clase.Horno':             'Four',
+    'clase.Sensor':            'Capteur',
+    'clase.Marca':             'Marque',
+  }
+};
+
+/**
+ * Traduce el nombre de una data property o clase de la ontología.
+ * tp('consumo potencia') → 'Power Consumption' (en inglés)
+ */
+function tp(key, lang = currentLanguage || 'es') {
+  return propLabels[lang]?.[key] || propLabels['es']?.[key] || key;
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -255,10 +682,8 @@ function translateDOM(lang = currentLanguage || 'es') {
     const translated = t(key, lang);
 
     // Si el elemento es un input, actualizar placeholder
-    if (el.tagName === 'INPUT' && el.type === 'text') {
-      if (el.dataset.placeholder) {
-        el.placeholder = translated;
-      }
+    if (el.tagName === 'INPUT') {
+      el.placeholder = translated;
     } else {
       // Si no, actualizar textContent
       el.textContent = translated;

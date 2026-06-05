@@ -20,6 +20,77 @@ grafo_local       = rdflib.Graph()
 # Guarda la ruta real del archivo cargado para poder reguardar en el mismo lugar
 ruta_archivo_cargado = None
 
+# ── Namespaces RDF/RDFS para enriquecimiento de etiquetas ──────────────────
+RDFS = rdflib.namespace.RDFS
+RDF  = rdflib.namespace.RDF
+
+# ═══════════════════════════════════════════════════════════
+# DICCIONARIO DE TRADUCCIÓN Español → Inglés y Portugués
+# (para enriquecer el grafo en RAM con rdfs:label @en y @pt)
+# ═══════════════════════════════════════════════════════════
+ES_TO_EN = {
+    "refrigerador": "refrigerator", "lavadora": "washing machine",
+    "televisor": "television", "pantalla": "screen",
+    "aire acondicionado": "air conditioner", "termostato": "thermostat",
+    "computadora": "computer", "calefactor": "heater",
+    "secadora de cabello": "hair dryer", "horno": "oven",
+    "horno electrico": "electric oven", "cafetera": "coffee maker",
+    "freezer": "freezer", "tostadora": "toaster",
+    "lavavajillas": "dishwasher", "microondas": "microwave",
+    "secadora": "dryer", "secadora de ropa": "clothes dryer",
+    "ventilador": "fan", "plancha de cabello": "hair straightener",
+    "cocina": "stove", "equipo de sonido": "sound system",
+    "aspiradora": "vacuum cleaner", "bateria": "battery",
+    "licuadora": "blender", "sensor": "sensor", "marca": "brand",
+    "dueño": "owner", "motor electrico": "electric motor",
+    "compresor": "compressor", "filtro": "filter",
+    "control remoto": "remote control", "lampara": "lamp",
+    "plancha": "iron", "exprimidor": "juicer",
+    "extractor de jugos": "juice extractor",
+}
+
+ES_TO_PT = {
+    "refrigerador": "geladeira", "lavadora": "máquina de lavar",
+    "televisor": "televisão", "pantalla": "tela",
+    "aire acondicionado": "ar condicionado", "termostato": "termostato",
+    "computadora": "computador", "calefactor": "aquecedor",
+    "secadora de cabello": "secador de cabelo", "horno": "forno",
+    "horno electrico": "forno elétrico", "cafetera": "cafeteira",
+    "freezer": "freezer", "tostadora": "torradeira",
+    "lavavajillas": "lava-louças", "microondas": "micro-ondas",
+    "secadora": "secadora", "secadora de ropa": "secadora de roupas",
+    "ventilador": "ventilador", "plancha de cabello": "chapinha",
+    "cocina": "fogão", "equipo de sonido": "equipamento de som",
+    "aspiradora": "aspirador", "bateria": "bateria",
+    "licuadora": "liquidificador", "sensor": "sensor", "marca": "marca",
+    "dueño": "dono", "motor electrico": "motor elétrico",
+    "compresor": "compressor", "filtro": "filtro",
+    "control remoto": "controle remoto", "lampara": "lâmpada",
+    "plancha": "ferro de passar", "exprimidor": "espremedor",
+    "extractor de jugos": "extrator de suco",
+}
+
+ES_TO_FR = {
+    "refrigerador": "réfrigérateur", "lavadora": "machine à laver",
+    "televisor": "téléviseur", "pantalla": "écran",
+    "aire acondicionado": "climatiseur", "termostato": "thermostat",
+    "computadora": "ordinateur", "calefactor": "radiateur",
+    "secadora de cabello": "sèche-cheveux", "horno": "four",
+    "horno electrico": "four électrique", "cafetera": "cafetière",
+    "freezer": "congélateur", "tostadora": "grille-pain",
+    "lavavajillas": "lave-vaisselle", "microondas": "micro-ondes",
+    "secadora": "sèche-linge", "secadora de ropa": "sèche-linge",
+    "ventilador": "ventilateur", "plancha de cabello": "lisseur",
+    "cocina": "cuisinière", "equipo de sonido": "chaîne stéréo",
+    "aspiradora": "aspirateur", "bateria": "batterie",
+    "licuadora": "mixeur", "sensor": "capteur", "marca": "marque",
+    "dueño": "propriétaire", "motor electrico": "moteur électrique",
+    "compresor": "compresseur", "filtro": "filtre",
+    "control remoto": "télécommande", "lampara": "lampe",
+    "plancha": "fer à repasser", "exprimidor": "presse-agrumes",
+    "extractor de jugos": "extracteur de jus",
+}
+
 # ── Construye el cache de individuos desde owlready2 ─────
 def construir_cache():
     global individuos_cache
@@ -36,9 +107,21 @@ def construir_cache():
                 break
         if not clase_nombre:
             continue
+        # Extraer etiquetas de idioma
+        s = rdflib.URIRef(ind.iri)
+        labels = {}
+        for o in grafo_local.objects(s, rdflib.RDFS.label):
+            if hasattr(o, 'language') and o.language:
+                labels[o.language] = str(o)
+            elif isinstance(o, rdflib.Literal) and not getattr(o, 'language', None):
+                labels['es'] = str(o)
+        
+        # Fallback al nombre de URI si falta el español
+        if 'es' not in labels:
+            labels['es'] = ind.name.replace("_", " ")
+
         props = {}
         # EXTRAEMOS PROPIEDADES USANDO RDFLIB PARA NO PERDER NINGUNA
-        s = rdflib.URIRef(ind.iri)
         for p, o in grafo_local.predicate_objects(s):
             p_str = str(p)
             # Ignorar rdf:type y rdfs:label ya que los sacamos por separado
@@ -51,11 +134,57 @@ def construir_cache():
 
         individuos_cache.append({
             "id":          ind.name,
-            "nombre":      ind.name.replace("_", " "),
+            "nombres":     labels,
             "clase":       clase_nombre,
             "propiedades": props
         })
     print(f"[RDFLib + owlready2] Cache: {len(individuos_cache)} individuos")
+
+
+# ── Enriquece el grafo en RAM con rdfs:label @en y @pt ───────────────
+def enriquecer_grafo_multilingue():
+    """Añade rdfs:label en @en y @pt a cada individuo basado en su nombre en ES."""
+    sujetos = list(grafo_local.subjects(RDF.type, None))
+    nuevas_tripletas = []
+
+    for sujeto in sujetos:
+        uri_str = str(sujeto)
+        if '#' not in uri_str and '/' not in uri_str:
+            continue
+        # Obtener el nombre del individuo desde la URI
+        nombre_uri = uri_str.split('#')[-1].split('/')[-1].replace('_', ' ').lower()
+
+        # Ya tiene label @es?
+        labels_existentes = {str(lang): str(label)
+                             for label, lang in [
+                                 (o, o.language) for o in grafo_local.objects(sujeto, RDFS.label)
+                                 if hasattr(o, 'language')
+                             ]}
+
+        # Agregar @es si no existe
+        if 'es' not in labels_existentes:
+            nuevas_tripletas.append((sujeto, RDFS.label, rdflib.Literal(nombre_uri, lang='es')))
+
+        # Agregar @en
+        if 'en' not in labels_existentes:
+            label_en = ES_TO_EN.get(nombre_uri, nombre_uri)
+            nuevas_tripletas.append((sujeto, RDFS.label, rdflib.Literal(label_en, lang='en')))
+
+        # Agregar @pt
+        if 'pt' not in labels_existentes:
+            label_pt = ES_TO_PT.get(nombre_uri, nombre_uri)
+            nuevas_tripletas.append((sujeto, RDFS.label, rdflib.Literal(label_pt, lang='pt')))
+
+        # Agregar @fr
+        if 'fr' not in labels_existentes:
+            label_fr = ES_TO_FR.get(nombre_uri, nombre_uri)
+            nuevas_tripletas.append((sujeto, RDFS.label, rdflib.Literal(label_fr, lang='fr')))
+
+    for triple in nuevas_tripletas:
+        grafo_local.add(triple)
+
+    print(f"  ✓ Multilingualidad: {len(nuevas_tripletas)} etiquetas rdfs:label agregadas (@en/@pt/@fr)")
+
 
 # ── Auto-carga al iniciar — busca todos los formatos posibles ─────
 def auto_cargar():
@@ -85,6 +214,7 @@ def auto_cargar():
                 ruta_archivo_cargado = ruta
 
                 grafo_local.parse(ruta, format="xml")
+                enriquecer_grafo_multilingue()  # Primero enriquecer, luego cachear con labels
                 construir_cache()
                 print(f"  ✓ Cargado: {len(individuos_cache)} individuos, {len(grafo_local)} triples")
             except OSError as e:
@@ -96,6 +226,7 @@ def auto_cargar():
                         ontologia_cargada = True
                         ruta_archivo_cargado = ruta
                         grafo_local.parse(ruta, format="xml")
+                        enriquecer_grafo_multilingue()
                         construir_cache()
                         print(f"  ✓ Cargado (fallback): {len(individuos_cache)} individuos, {len(grafo_local)} triples")
                     except Exception as e2:
@@ -140,6 +271,7 @@ def cargar_archivo():
         grafo_local.remove((None, None, None))
         grafo_local.parse(ruta_tmp, format="xml")
 
+        enriquecer_grafo_multilingue()  # Nivel 2 y 3 del doc. 4.1 — primero labels, luego cache
         construir_cache()
         return jsonify({
             "ok":         True,
@@ -162,11 +294,11 @@ def buscar_local():
     clase_filtro = request.args.get("clase", "").strip().lower()
     lang         = request.args.get("lang",  "es").strip().lower()
 
-    # Validar idioma
-    if lang not in ['es', 'en', 'both']:
+    # Validar idioma (ahora soporta 3 idiomas)
+    if lang not in ['es', 'en', 'pt', 'fr', 'both']:
         lang = 'es'
 
-    # Diccionario de traducción para hacer la ontología local multilingüe
+    # Diccionario de traducción EN → ES (para búsqueda en ontología local en español)
     EN_TO_ES = {
         "refrigerator": "refrigerador", "fridge": "refrigerador",
         "washing machine": "lavadora", "washer": "lavadora",
@@ -196,14 +328,75 @@ def buscar_local():
         "brand": "marca"
     }
 
+    # Diccionario de traducción PT → ES (3er idioma: Portugués)
+    PT_TO_ES = {
+        "geladeira": "refrigerador", "frigorífico": "refrigerador",
+        "máquina de lavar": "lavadora", "lavadora": "lavadora",
+        "televisão": "televisor", "tv": "televisor",
+        "tela": "pantalla", "monitor": "pantalla",
+        "ar condicionado": "aire acondicionado",
+        "termostato": "termostato",
+        "computador": "computadora", "notebook": "computadora",
+        "aquecedor": "calefactor",
+        "secador de cabelo": "secadora de cabello",
+        "forno": "horno", "forno elétrico": "horno electrico",
+        "cafeteira": "cafetera",
+        "freezer": "freezer",
+        "torradeira": "tostadora",
+        "lava-louças": "lavavajillas", "lava louças": "lavavajillas",
+        "micro-ondas": "microondas", "microondas": "microondas",
+        "secadora": "secadora", "secadora de roupas": "secadora de ropa",
+        "ventilador": "ventilador",
+        "chapinha": "plancha de cabello", "prancha de cabelo": "plancha de cabello",
+        "fogão": "cocina", "cooktop": "cocina",
+        "equipamento de som": "equipo de sonido",
+        "aspirador": "aspiradora", "aspirador de pó": "aspiradora",
+        "bateria": "bateria",
+        "liquidificador": "licuadora",
+        "sensor": "sensor",
+        "marca": "marca",
+        "dono": "dueño",
+        "ferro de passar": "plancha",
+        "espremedor": "exprimidor",
+        "extrator de suco": "extractor de jugos",
+    }
+
     # Separar por comas o espacios para búsquedas múltiples simultáneas (AND logic)
     terminos_crudos = [t.strip() for t in re.split(r'[,\s]+', term_raw) if t.strip()]
     
+    # Diccionario de traducción FR → ES (4º idioma: Francés)
+    FR_TO_ES = {
+        "réfrigérateur": "refrigerador", "frigo": "refrigerador",
+        "machine à laver": "lavadora", "lave-linge": "lavadora",
+        "téléviseur": "televisor", "télévision": "televisor",
+        "écran": "pantalla", "climatiseur": "aire acondicionado",
+        "thermostat": "termostato", "ordinateur": "computadora",
+        "radiateur": "calefactor", "sèche-cheveux": "secadora de cabello",
+        "four": "horno", "four électrique": "horno electrico",
+        "cafetière": "cafetera", "congélateur": "freezer",
+        "grille-pain": "tostadora", "lave-vaisselle": "lavavajillas",
+        "micro-ondes": "microondas", "sèche-linge": "secadora",
+        "ventilateur": "ventilador", "lisseur": "plancha de cabello",
+        "cuisinière": "cocina", "chaîne stéréo": "equipo de sonido",
+        "aspirateur": "aspiradora", "batterie": "bateria",
+        "mixeur": "licuadora", "blender": "licuadora",
+        "capteur": "sensor", "marque": "marca",
+        "propriétaire": "dueño", "moteur électrique": "motor electrico",
+        "compresseur": "compresor", "filtre": "filtro",
+        "télécommande": "control remoto", "lampe": "lampara",
+        "fer à repasser": "plancha", "presse-agrumes": "exprimidor",
+        "extracteur de jus": "extractor de jugos",
+    }
+
     terminos = []
     for t in terminos_crudos:
         t_lower = t.lower()
         if lang == 'en' and t_lower in EN_TO_ES:
             terminos.append(EN_TO_ES[t_lower])
+        elif lang == 'pt' and t_lower in PT_TO_ES:
+            terminos.append(PT_TO_ES[t_lower])
+        elif lang == 'fr' and t_lower in FR_TO_ES:
+            terminos.append(FR_TO_ES[t_lower])
         else:
             terminos.append(t)
 
@@ -248,7 +441,18 @@ def buscar_local():
     except Exception as e:
         return jsonify({"ok": False, "error": f"Error ejecutando SPARQL: {str(e)}"}), 500
 
-    resultados = [ind for ind in individuos_cache if ind["id"] in resultados_uris]
+    resultados = []
+    for ind in individuos_cache:
+        if ind["id"] in resultados_uris:
+            # Construir objeto para respuesta con el nombre en el idioma correcto
+            nombre_traducido = ind["nombres"].get(lang) or ind["nombres"].get("es") or ind["id"]
+            
+            resultados.append({
+                "id": ind["id"],
+                "nombre": nombre_traducido,
+                "clase": ind["clase"],
+                "propiedades": ind["propiedades"]
+            })
 
     return jsonify({
         "ok":        True,
@@ -288,10 +492,15 @@ def stats():
 @app.route("/dbpedia", methods=["GET"])
 def buscar_dbpedia():
     term_raw = request.args.get("term", "").strip()
-    # Forzamos 'both' siempre para DBpedia.
-    # Así, si el usuario busca en inglés ("Refrigerator") pero la UI está en español ("es"),
-    # DBpedia igual encontrará los resultados en inglés.
-    lang = 'both'
+    lang_user = request.args.get("lang", "es").strip().lower()
+
+    # Validar idioma del usuario (3 idiomas soportados)
+    if lang_user not in ['es', 'en', 'pt', 'fr']:
+        lang_user = 'es'
+
+    # Mapeo de códigos de idioma → DBpedia
+    LANG_TO_DBPEDIA = {'es': 'es', 'en': 'en', 'pt': 'pt', 'fr': 'fr'}
+    dbp_lang = LANG_TO_DBPEDIA.get(lang_user, 'es')
 
     terminos = [t.strip() for t in re.split(r'[,\s]+', term_raw) if t.strip()]
 
@@ -299,33 +508,28 @@ def buscar_dbpedia():
         return jsonify({"ok": True, "resultados": []})
 
     # Usar bif:contains para búsqueda de texto completo rápida en DBpedia (Virtuoso)
-    # Ejemplo: 'lavadora' AND 'samsung'
     terminos_limpios = [re.sub(r'["\\\n\r\']', '', t) for t in terminos]
     bif_query = " AND ".join([f"'{t}'" for t in terminos_limpios])
 
-    # Construir filtro de idioma dinámico
-    if lang == 'es':
-        filtro_lang = 'lang(?nombre) = "es"'
-    elif lang == 'en':
+    # Filtro de idioma para el nombre: idioma del usuario con fallback a inglés
+    if dbp_lang == 'en':
         filtro_lang = 'lang(?nombre) = "en"'
-    else:  # both
-        filtro_lang = '(lang(?nombre) = "en" || lang(?nombre) = "es")'
+    else:
+        filtro_lang = f'lang(?nombre) = "{dbp_lang}" || lang(?nombre) = "en"'
 
-    # Ya no limitamos a dbo:Device porque DBpedia omite muchos electrodomésticos ahí (ej. Refrigerator).
-    # Con bif:contains la consulta es rapidísima a nivel global.
     query = f"""
     PREFIX dbo:  <http://dbpedia.org/ontology/>
     PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
     PREFIX foaf: <http://xmlns.com/foaf/0.1/>
 
-    SELECT DISTINCT ?recurso ?nombre ?abs ?desc ?imagen ?wiki
+    SELECT DISTINCT ?recurso ?nombre ?abs_pref ?abs_en ?imagen ?wiki
     WHERE {{
       ?recurso rdfs:label ?nombre .
       ?nombre bif:contains "{bif_query}" .
       FILTER ({filtro_lang})
 
-      OPTIONAL {{ ?recurso dbo:abstract ?abs . FILTER (langMatches(lang(?abs), "es") || langMatches(lang(?abs), "en")) }}
-      OPTIONAL {{ ?recurso rdfs:comment ?desc . FILTER (langMatches(lang(?desc), "es") || langMatches(lang(?desc), "en")) }}
+      OPTIONAL {{ ?recurso dbo:abstract ?abs_pref . FILTER (langMatches(lang(?abs_pref), "{dbp_lang}")) }}
+      OPTIONAL {{ ?recurso dbo:abstract ?abs_en   . FILTER (langMatches(lang(?abs_en),   "en")) }}
       OPTIONAL {{ ?recurso dbo:thumbnail ?imagen . }}
       OPTIONAL {{ ?recurso foaf:isPrimaryTopicOf ?wiki . }}
     }}
@@ -347,9 +551,9 @@ def buscar_dbpedia():
                 continue
             vistos.add(recurso)
             
-            descripcion = b.get("abs", {}).get("value", "")
-            if not descripcion:
-                descripcion = b.get("desc", {}).get("value", "")
+            # Preferir abstract en idioma del usuario, fallback a inglés
+            descripcion = (b.get("abs_pref", {}).get("value", "")
+                           or b.get("abs_en", {}).get("value", ""))
 
             formateados.append({
                 "recurso":     recurso,
@@ -358,7 +562,7 @@ def buscar_dbpedia():
                 "imagen":      b.get("imagen",  {}).get("value", ""),
                 "wikiPage":    b.get("wiki",    {}).get("value", ""),
                 "dbpediaLink": recurso,
-                "lang":        lang
+                "lang":        lang_user
             })
 
         return jsonify({"ok": True, "resultados": formateados})
