@@ -84,9 +84,17 @@ body::before {
   z-index: 1;
 }
 
-/* ── BOTÓN TEMA ── */
+/* ── BOTONES DE CONTROL (idioma + tema) ── */
+.controls-bar {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  z-index: 10;
+}
 .theme-toggle {
-  position: absolute; top: 24px; right: 24px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 50%;
@@ -95,6 +103,7 @@ body::before {
   display: flex; align-items: center; justify-content: center;
   transition: all 0.2s;
   box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  flex-shrink: 0;
 }
 .theme-toggle:hover { border-color: var(--accent); transform: scale(1.05); }
 
