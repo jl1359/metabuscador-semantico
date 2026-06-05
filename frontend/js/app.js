@@ -29,30 +29,21 @@ function initLanguage() {
   }
 
   // 3. Actualizar UI
-  updateLanguageButton();
+  const select = document.getElementById('langSelect');
+  if (select) select.value = currentLanguage;
   translateDOM(currentLanguage);
 }
 
-function toggleLanguage() {
-  // Cicla entre los 3 idiomas: es -> en -> pt -> es
-  const currentIndex = SUPPORTED_LANGS.indexOf(currentLanguage);
-  currentLanguage = SUPPORTED_LANGS[(currentIndex + 1) % SUPPORTED_LANGS.length];
-  localStorage.setItem('language', currentLanguage);
-  updateLanguageButton();
-  translateDOM(currentLanguage);
-  // Re-renderizar filtros/chips de clase con el nuevo idioma
-  if (ontologiaCargada) cargarEstadisticas();
-  // Re-buscar con nuevo idioma si hay una búsqueda activa
-  if (typeof buscarUnificado === 'function') buscarUnificado();
-}
-
-function updateLanguageButton() {
-  const btn = document.getElementById('langToggle');
-  if (!btn) return;
-  // Muestra el idioma ACTIVO con su bandera
-  const labels = { es: '🇪🇸 ES', en: '🇬🇧 EN', pt: '🇧🇷 PT' };
-  btn.textContent = labels[currentLanguage] || currentLanguage.toUpperCase();
-  btn.title = t('language.' + currentLanguage);
+function changeLanguage(lang) {
+  if (SUPPORTED_LANGS.includes(lang)) {
+    currentLanguage = lang;
+    localStorage.setItem('language', currentLanguage);
+    translateDOM(currentLanguage);
+    // Re-renderizar filtros/chips de clase con el nuevo idioma
+    if (ontologiaCargada) cargarEstadisticas();
+    // Re-buscar con nuevo idioma si hay una búsqueda activa
+    if (typeof buscarUnificado === 'function') buscarUnificado();
+  }
 }
 
 // ══════════════════════════════════════════════
@@ -165,16 +156,19 @@ async function handleFile(file) {
       await cargarEstadisticas();
       renderApp();
     } else {
-      document.getElementById('loaderSection').innerHTML = `
-        <div style="text-align:center; padding:40px;">
-          <p style="color:#ff6b6b;">${t('error.load.file')} ${escapeHtml(data.error)}</p>
-        </div>`;
-    }
+      document.getElementById('statusText').innerHTML = `
+        ${t('loader.loading.rdflib')}
+        <div style="font-size:12px;opacity:0.7;margin-top:4px">
+          ${file.name} (${(file.size/1024).toFixed(1)} KB)
+        </div>
+      `;}
   } catch(e) {
-    document.getElementById('loaderSection').innerHTML = `
-      <div style="text-align:center; padding:40px;">
-        <p style="color:#ff6b6b;">${t('error.connect.backend')} ${escapeHtml(e.message)}</p>
-      </div>`;
+    document.getElementById('statusText').innerHTML = `
+      <span style="color:var(--error)">✗ ${t('backend.notfound')}</span>
+      <div style="font-size:12px; opacity:0.8; margin-top:8px">
+        ${t('backend.run.terminal')} <code style="background:rgba(0,0,0,0.2);padding:2px 6px;border-radius:4px">python server.py</code>
+      </div>
+    `;
   }
 }
 
@@ -206,7 +200,6 @@ async function cargarEstadisticas() {
         .filter(c => c.total > 0 && !['Thing','NamedIndividual'].includes(c.clase))
         .slice(0, 20);
 
-      // Botones de filtro por clase (nombre traducido, filtro por nombre original)
       document.getElementById('filterBtns').innerHTML = clasesConIndividuos.map(c => {
         const claseLabel = tp('clase.' + c.clase) || escapeHtml(c.clase);
         return `<button class="filter-btn" onclick="setFilter('${escapeAttr(c.clase)}', this)">
@@ -214,7 +207,6 @@ async function cargarEstadisticas() {
          </button>`;
       }).join('');
 
-      // Explorador de ontología — chips con nombre traducido
       document.getElementById('classGrid').innerHTML = clasesConIndividuos.map(c => {
         const claseLabel = tp('clase.' + c.clase) || escapeHtml(c.clase);
         return `<div class="class-chip" onclick="searchByClass('${escapeAttr(c.clase)}')">
@@ -241,8 +233,8 @@ function renderApp() {
 // ══════════════════════════════════════════════
 function buildSPARQLQuery(term, claseFilter) {
   const base = 'http://www.umss.edu.bo/ontologias/electrodomesticos.owl#';
-  let q = `<span class="comment"># MetaBuscador Semántico — RDFLib + SPARQL</span>\n`;
-  q += `<span class="comment"># Ejecutado por: Python RDFLib en el backend</span>\n\n`;
+  let q = `<span class="comment">${t('sparql.comment.local') || '# MetaBuscador Semántico — RDFLib + SPARQL'}</span>\n`;
+  q += `<span class="comment">${t('sparql.comment.local.executor') || '# Ejecutado por: Python RDFLib en el backend'}</span>\n\n`;
   q += `<span class="kw">PREFIX</span> : &lt;${base}&gt;\n`;
   q += `<span class="kw">PREFIX</span> rdf:  &lt;http://www.w3.org/1999/02/22-rdf-syntax-ns#&gt;\n`;
   q += `<span class="kw">PREFIX</span> rdfs: &lt;http://www.w3.org/2000/01/rdf-schema#&gt;\n`;

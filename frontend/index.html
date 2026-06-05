@@ -11,11 +11,12 @@
 
 <div class="container">
   <div class="controls-bar">
-    <button id="langToggle" class="theme-toggle" title="Cambiar idioma / Change language / Mudar idioma"
-      style="border-radius: 8px; padding: 0 14px; min-width: 72px; font-size: 13px; font-weight: 700;
-             letter-spacing: 0.5px;">
-      🇪🇸 ES
-    </button>
+    <select id="langSelect" class="lang-select" onchange="changeLanguage(this.value)" title="Cambiar idioma / Change language">
+      <option value="es">🇪🇸 Español</option>
+      <option value="en">🇬🇧 English</option>
+      <option value="pt">🇧🇷 Português</option>
+      <option value="fr">🇫🇷 Français</option>
+    </select>
     <button id="themeToggle" class="theme-toggle" onclick="toggleTheme()">🌞</button>
   </div>
 

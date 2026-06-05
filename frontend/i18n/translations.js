@@ -84,7 +84,7 @@ const i18n = {
     // ══ DBPEDIA CARDS ══
     'dbpedia.link.wikipedia': '🌐 Ver en Wikipedia',
     'dbpedia.link.resource': '◈ Recurso DBpedia',
-    'dbpedia.button.save': '💾 Guardar en Local',
+    'dbpedia.button.save': '💾 Guardar en mi Ontología Local',
     'dbpedia.button.saving': '⏳ Guardando...',
     'dbpedia.button.saved': '✅ ¡Guardado!',
     'dbpedia.button.error': '❌ Error',
@@ -132,6 +132,78 @@ const i18n = {
     'sparql.toggle.show.text': '▶ ver',
     'dbpedia.loading.desc': 'Cargando descripción...',
     'search.loading': 'Buscando...',
+  },
+
+  fr: {
+    // ══ HEADER & BRANDING ══
+    'header.badge': 'Web Sémantique · UMSS',
+    'header.title': 'Moteur de Recherche Sémantique',
+    'header.subtitle': 'Ontologie d\'Appareils Électroménagers · ',
+    'header.tech': 'OWL + SPARQL',
+
+    // ══ STATISTICS ══
+    'stats.individuals': 'Individus',
+    'stats.triples': 'Triplets RDF',
+
+    // ══ SEARCH AREA ══
+    'search.placeholder': 'Rechercher par ex. "samsung, lave-linge, mixeur"...',
+    'search.button': 'Recherche Fédérée',
+    'search.button.local': 'Recherche Locale',
+
+    // ══ SETTINGS & PANELS ══
+    'settings.title': 'Paramètres de Recherche',
+    'settings.local.desc': 'Requêtes SPARQL vers l\'ontologie locale',
+    'settings.dbpedia.desc': 'Requêtes SPARQL vers l\'endpoint public DBpedia',
+    'settings.visualize': 'Explorer l\'Ontologie',
+
+    // ══ FILTERS ══
+    'filters.class': 'Filtres par Classe',
+    'filters.properties': 'Filtres par Propriétés',
+    'filters.clear': 'Effacer les filtres',
+    'filters.apply': 'Appliquer les filtres',
+
+    // ══ RESULTS AREA ══
+    'results.empty': 'Aucun résultat trouvé pour cette recherche.',
+    'results.local.title': 'Résultats Locaux (Ontologie)',
+    'results.dbpedia.title': 'Résultats DBpedia',
+
+    // ══ MODALS & DETAILS ══
+    'modal.close': 'Fermer',
+    'modal.properties': 'Propriétés',
+    'modal.no.properties': 'Aucune propriété enregistrée pour cet individu.',
+    'modal.source': 'Source: Locale',
+
+    // ══ DBPEDIA CARD ══
+    'dbpedia.abstract': 'Description :',
+    'dbpedia.link': 'Voir dans DBpedia',
+    'dbpedia.wiki': 'Voir sur Wikipédia',
+
+    // ══ TOASTS / ALERTS ══
+    'toast.error': 'Erreur',
+    'toast.success': 'Succès',
+    'toast.backend.error': 'Le backend ne répond pas. Vérifiez que server.py est en cours d\'exécution.',
+
+    // ══ SELETOR DE IDIOMA ══
+    'language.selector': 'Langue',
+    'language.es': 'Español',
+    'language.en': 'English',
+    'language.pt': 'Português',
+    'language.fr': 'Français',
+
+    // ══ MENSAGENS HARDCODED (backend / carregamento) ══
+    'backend.notfound': 'Backend introuvable',
+    'backend.run.terminal': 'Exécutez dans votre terminal:',
+    'loader.loading.rdflib': 'Chargement de l\'ontologie avec RDFLib...',
+    'error.load.file': 'Erreur de chargement du fichier :',
+    'error.connect.backend': 'Impossible de se connecter au backend :',
+    'sparql.toggle.hide': '▼ cacher',
+    'sparql.toggle.show.text': '▶ voir',
+    'dbpedia.loading.desc': 'Chargement de la description...',
+    'search.loading': 'Recherche en cours...',
+    'dbpedia.button.save': '💾 Sauvegarder dans mon Ontologie Locale',
+    'dbpedia.button.saving': '⏳ Sauvegarde...',
+    'dbpedia.button.saved': '✅ Sauvegardé !',
+    'dbpedia.button.error': '❌ Erreur',
   },
 
   en: {
@@ -213,7 +285,7 @@ const i18n = {
     // ══ DBPEDIA CARDS ══
     'dbpedia.link.wikipedia': '🌐 View on Wikipedia',
     'dbpedia.link.resource': '◈ DBpedia Resource',
-    'dbpedia.button.save': '💾 Save to Local',
+    'dbpedia.button.save': '💾 Save to my Local Ontology',
     'dbpedia.button.saving': '⏳ Saving...',
     'dbpedia.button.saved': '✅ Saved!',
     'dbpedia.button.error': '❌ Error',
@@ -250,6 +322,7 @@ const i18n = {
     'language.es': 'Español',
     'language.en': 'English',
     'language.pt': 'Português',
+    'language.fr': 'Français',
 
     // ══ HARDCODED MESSAGES (backend / loading) ══
     'backend.notfound': 'Backend not found',
@@ -346,7 +419,7 @@ const i18n = {
     // ══ CARDS DBPEDIA ══
     'dbpedia.link.wikipedia': '🌐 Ver na Wikipedia',
     'dbpedia.link.resource': '◈ Recurso DBpedia',
-    'dbpedia.button.save': '💾 Salvar no Local',
+    'dbpedia.button.save': '💾 Salvar na minha Ontologia Local',
     'dbpedia.button.saving': '⏳ Salvando...',
     'dbpedia.button.saved': '✅ Salvo!',
     'dbpedia.button.error': '❌ Erro',
@@ -383,6 +456,7 @@ const i18n = {
     'language.es': 'Español',
     'language.en': 'English',
     'language.pt': 'Português',
+    'language.fr': 'Français',
 
     // ══ MENSAGENS HARDCODED (backend / carregamento) ══
     'backend.notfound': 'Backend não encontrado',
@@ -404,8 +478,8 @@ function t(key, lang = currentLanguage || 'es') {
   return i18n[lang]?.[key] || i18n['es'][key] || key;
 }
 
-// Lista de idiomas soportados (orden del ciclo)
-const SUPPORTED_LANGS = ['es', 'en', 'pt'];
+// Lista de idiomas soportados
+const SUPPORTED_LANGS = ['es', 'en', 'pt', 'fr'];
 
 // ═══════════════════════════════════════════════════════════════════
 // TRADUCCIONES DE DATA PROPERTIES Y CLASES DE ONTOLOGÍA
@@ -545,6 +619,49 @@ const propLabels = {
     'clase.Horno':             'Forno',
     'clase.Sensor':            'Sensor',
     'clase.Marca':             'Marca',
+  },
+  fr: {
+    'consumo potencia':       'Consommation Électrique',
+    'capacidad litros':       'Capacité (litres)',
+    'capacidad lavado':       'Capacité de Lavage (kg)',
+    'capacidad refrigeracion':'Capacité de Refroidissement',
+    'eficiencia energetica':  'Efficacité Énergétique',
+    'tamano pantalla':        'Taille de l\'Écran',
+    'voltaje aparato':        'Tension (V)',
+    'peso aparato':           'Poids (kg)',
+    'numero hornillas':       'Nb Brûleurs',
+    'capacidad tazas':        'Capacité en Tasses',
+    'capacidad carga':        'Capacité de Charge',
+    'rpm centrifugado':       'Vitesse d\'Essorage (RPM)',
+    'potencia microondas':    'Puissance Micro-ondes',
+    'area cobertura':         'Zone de Couverture',
+    'numero velocidades':     'Nb Vitesses',
+    'memoria ram':            'Mémoire RAM',
+    'almacenamiento interno': 'Stockage',
+    'capacidad congelacion':  'Capacité de Congélation',
+    'vida util estimada':     'Durée de Vie (hrs)',
+    'tecnologia inverter':    'Technologie Inverter',
+    'tv smart':               'Smart TV',
+    'portable':               'Portable',
+    'conectividad red':       'Connectivité Réseau',
+    'fabricado por':          'Fabriqué par',
+    'tiene componente':       'Composant',
+    'pais origen marca':      'Pays d\'Origine',
+    'ano creacion marca':     'Année de Création',
+    'bool.true':  '✓ Oui',
+    'bool.false': '✗ Non',
+    'clase.Refrigerador':      'Réfrigérateur',
+    'clase.Lavadora':          'Machine à Laver',
+    'clase.Televisor':         'Téléviseur',
+    'clase.Computadora':       'Ordinateur',
+    'clase.Microondas':        'Micro-ondes',
+    'clase.Aspiradora':        'Aspirateur',
+    'clase.Licuadora':         'Mixeur',
+    'clase.Cafetera':          'Cafetière',
+    'clase.Aire Acondicionado':'Climatiseur',
+    'clase.Horno':             'Four',
+    'clase.Sensor':            'Capteur',
+    'clase.Marca':             'Marque',
   }
 };
 

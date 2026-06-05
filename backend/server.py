@@ -107,9 +107,21 @@ def construir_cache():
                 break
         if not clase_nombre:
             continue
+        # Extraer etiquetas de idioma
+        s = rdflib.URIRef(ind.iri)
+        labels = {}
+        for o in grafo_local.objects(s, rdflib.RDFS.label):
+            if hasattr(o, 'language') and o.language:
+                labels[o.language] = str(o)
+            elif isinstance(o, rdflib.Literal) and not getattr(o, 'language', None):
+                labels['es'] = str(o)
+        
+        # Fallback al nombre de URI si falta el español
+        if 'es' not in labels:
+            labels['es'] = ind.name.replace("_", " ")
+
         props = {}
         # EXTRAEMOS PROPIEDADES USANDO RDFLIB PARA NO PERDER NINGUNA
-        s = rdflib.URIRef(ind.iri)
         for p, o in grafo_local.predicate_objects(s):
             p_str = str(p)
             # Ignorar rdf:type y rdfs:label ya que los sacamos por separado
@@ -122,7 +134,7 @@ def construir_cache():
 
         individuos_cache.append({
             "id":          ind.name,
-            "nombre":      ind.name.replace("_", " "),
+            "nombres":     labels,
             "clase":       clase_nombre,
             "propiedades": props
         })
@@ -429,7 +441,18 @@ def buscar_local():
     except Exception as e:
         return jsonify({"ok": False, "error": f"Error ejecutando SPARQL: {str(e)}"}), 500
 
-    resultados = [ind for ind in individuos_cache if ind["id"] in resultados_uris]
+    resultados = []
+    for ind in individuos_cache:
+        if ind["id"] in resultados_uris:
+            # Construir objeto para respuesta con el nombre en el idioma correcto
+            nombre_traducido = ind["nombres"].get(lang) or ind["nombres"].get("es") or ind["id"]
+            
+            resultados.append({
+                "id": ind["id"],
+                "nombre": nombre_traducido,
+                "clase": ind["clase"],
+                "propiedades": ind["propiedades"]
+            })
 
     return jsonify({
         "ok":        True,

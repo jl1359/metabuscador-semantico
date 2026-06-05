@@ -106,6 +106,22 @@ body::before {
   flex-shrink: 0;
 }
 .theme-toggle:hover { border-color: var(--accent); transform: scale(1.05); }
+.lang-select {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  height: 44px;
+  padding: 0 14px;
+  color: var(--text);
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+.lang-select:hover { border-color: var(--accent); }
 
 /* ── HEADER ── */
 header { padding: 40px 0 0; text-align: center; }
