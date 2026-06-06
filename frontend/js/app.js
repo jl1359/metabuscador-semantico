@@ -22,6 +22,8 @@ function initLanguage() {
       currentLanguage = 'en';
     } else if (navLang.startsWith('pt')) {
       currentLanguage = 'pt';
+    } else if (navLang.startsWith('fr')) {
+      currentLanguage = 'fr';
     } else {
       currentLanguage = 'es';
     }
@@ -75,8 +77,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   // Inicializar idioma
   initLanguage();
 
-  // Listener para botón de idioma
-  document.getElementById('langToggle').addEventListener('click', toggleLanguage);
+  // Listener de idioma removido, ahora se maneja en el HTML (onchange)
 
   // Un único listener para el Enter — llama siempre a la búsqueda unificada
   document.getElementById('searchInput').addEventListener('keydown', e => {
@@ -197,8 +198,7 @@ async function cargarEstadisticas() {
 
     if (clases.ok) {
       const clasesConIndividuos = clases.clases
-        .filter(c => c.total > 0 && !['Thing','NamedIndividual'].includes(c.clase))
-        .slice(0, 20);
+        .filter(c => c.total > 0 && !['Thing','NamedIndividual'].includes(c.clase));
 
       document.getElementById('filterBtns').innerHTML = clasesConIndividuos.map(c => {
         const claseLabel = tp('clase.' + c.clase) || escapeHtml(c.clase);
@@ -207,12 +207,6 @@ async function cargarEstadisticas() {
          </button>`;
       }).join('');
 
-      document.getElementById('classGrid').innerHTML = clasesConIndividuos.map(c => {
-        const claseLabel = tp('clase.' + c.clase) || escapeHtml(c.clase);
-        return `<div class="class-chip" onclick="searchByClass('${escapeAttr(c.clase)}')">
-           ${claseLabel}<span class="count">${c.total}</span>
-         </div>`;
-      }).join('');
     }
   } catch(e) {
     console.error('Error cargando estadísticas:', e);
@@ -249,7 +243,7 @@ function buildSPARQLQuery(term, claseFilter) {
   if (term) {
     const terminos = term.split(',').map(t => t.trim()).filter(t => t);
     if (terminos.length > 1) {
-      q += `  <span class="comment"># Búsqueda simultánea — consultas en paralelo por cada término</span>\n`;
+      q += `  <span class="comment">${t('sparql.comment.local.parallel')}</span>\n`;
       const filtros = terminos.map(t =>
         `<span class="kw">CONTAINS</span>(<span class="kw">LCASE</span>(<span class="kw">STR</span>(<span class="var">?individuo</span>)), <span class="str">"${escapeHtml(t.toLowerCase())}"</span>)`
       );
@@ -266,9 +260,9 @@ function buildDbpSPARQLQuery(term) {
   const terminos = term.split(/[,\s]+/).map(t => t.trim()).filter(t => t);
   const bif  = terminos.map(t => `'${escapeHtml(t)}'`).join(' AND ');
 
-  return `<span class="comment"># BC Remota — DBpedia SPARQL</span>
-<span class="comment"># Endpoint: https://dbpedia.org/sparql</span>
-<span class="comment"># Búsqueda de texto completo con Virtuoso bif:contains</span>
+  return `<span class="comment">${t('sparql.comment.dbpedia')}</span>
+<span class="comment">${t('sparql.comment.dbpedia.endpoint')}</span>
+<span class="comment">${t('sparql.comment.dbpedia.bif')}</span>
 
 <span class="kw">PREFIX</span> rdfs: &lt;http://www.w3.org/2000/01/rdf-schema#&gt;
 <span class="kw">PREFIX</span> dbo:  &lt;http://dbpedia.org/ontology/&gt;
@@ -388,6 +382,8 @@ const KEY_PROPS = [
   'numero hornillas','capacidad tazas','capacidad carga','rpm centrifugado',
   'potencia microondas','area cobertura','numero velocidades','memoria ram',
   'almacenamiento interno','capacidad congelacion','vida util estimada',
+  'correo electronico dueno','nombre dueno','telefono dueno',
+  'ano creacion marca','pais origen marca','sitio web oficial',
   'tecnologia inverter','tv smart','portable','conectividad red',
   'fabricado por','tiene componente','pais origen marca','ano creacion marca'
 ];
@@ -430,7 +426,7 @@ function generateLocalCardsHtml(items, tokens) {
         <div class="card-top">
           <div class="card-name">${nombre}</div>
           <div class="card-badges">
-            <span class="source-badge source-local">🏠 Local</span>
+            <span class="source-badge source-local">🏠 ${t('badge.local')}</span>
             <div class="card-class">${claseTraducida}</div>
           </div>
         </div>
@@ -470,7 +466,7 @@ function generateDbpCardsHtml(items) {
     return `
       <div class="dbp-card">
         <div class="dbp-card-header">
-          <span class="source-badge source-dbpedia">🌐 DBpedia</span>
+          <span class="source-badge source-dbpedia">🌐 ${t('badge.dbpedia')}</span>
         </div>
         <div class="dbp-card-top">
           ${imgHtml}${placeholderHtml}
@@ -548,8 +544,8 @@ function renderGroupedResults(groups, isMultiSearch) {
           <span class="group-icon">${groupTotal > 0 ? '🔎' : '🔍'}</span>
           <span class="group-term">"${escapeHtml(group.term)}"</span>
           <span class="group-count">${groupTotal} ${groupTotal !== 1 ? t('results.count.plural') || 'resultados' : t('results.count') || 'resultado'}</span>
-          ${group.localRes.length > 0 ? `<span class="group-badge local-badge">🏠 ${group.localRes.length} local</span>` : ''}
-          ${group.dbpRes.length > 0 ? `<span class="group-badge dbp-badge">🌐 ${group.dbpRes.length} DBpedia</span>` : ''}
+          ${group.localRes.length > 0 ? `<span class="group-badge local-badge">🏠 ${group.localRes.length} ${t('badge.local').toLowerCase()}</span>` : ''}
+          ${group.dbpRes.length > 0 ? `<span class="group-badge dbp-badge">🌐 ${group.dbpRes.length} ${t('badge.dbpedia')}</span>` : ''}
         </div>
       </div>`;
 

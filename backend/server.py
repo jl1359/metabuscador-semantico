@@ -112,9 +112,9 @@ def construir_cache():
         labels = {}
         for o in grafo_local.objects(s, rdflib.RDFS.label):
             if hasattr(o, 'language') and o.language:
-                labels[o.language] = str(o)
+                labels[o.language] = str(o).replace("_", " ")
             elif isinstance(o, rdflib.Literal) and not getattr(o, 'language', None):
-                labels['es'] = str(o)
+                labels['es'] = str(o).replace("_", " ")
         
         # Fallback al nombre de URI si falta el español
         if 'es' not in labels:
@@ -167,17 +167,26 @@ def enriquecer_grafo_multilingue():
 
         # Agregar @en
         if 'en' not in labels_existentes:
-            label_en = ES_TO_EN.get(nombre_uri, nombre_uri)
+            label_en = nombre_uri
+            for k, v in ES_TO_EN.items():
+                if k in label_en:
+                    label_en = label_en.replace(k, v)
             nuevas_tripletas.append((sujeto, RDFS.label, rdflib.Literal(label_en, lang='en')))
 
         # Agregar @pt
         if 'pt' not in labels_existentes:
-            label_pt = ES_TO_PT.get(nombre_uri, nombre_uri)
+            label_pt = nombre_uri
+            for k, v in ES_TO_PT.items():
+                if k in label_pt:
+                    label_pt = label_pt.replace(k, v)
             nuevas_tripletas.append((sujeto, RDFS.label, rdflib.Literal(label_pt, lang='pt')))
 
         # Agregar @fr
         if 'fr' not in labels_existentes:
-            label_fr = ES_TO_FR.get(nombre_uri, nombre_uri)
+            label_fr = nombre_uri
+            for k, v in ES_TO_FR.items():
+                if k in label_fr:
+                    label_fr = label_fr.replace(k, v)
             nuevas_tripletas.append((sujeto, RDFS.label, rdflib.Literal(label_fr, lang='fr')))
 
     for triple in nuevas_tripletas:
@@ -194,7 +203,6 @@ def auto_cargar():
 
     # CORREGIDO: busca todos los nombres posibles en orden de preferencia
     nombres_posibles = [
-        "electrodomesticos.owl",
         "web_semanticas.rdf",
         "web-semanticas.owx",
         "web_semanticas.owl",
