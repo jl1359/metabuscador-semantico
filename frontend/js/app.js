@@ -198,8 +198,7 @@ async function cargarEstadisticas() {
 
     if (clases.ok) {
       const clasesConIndividuos = clases.clases
-        .filter(c => c.total > 0 && !['Thing','NamedIndividual'].includes(c.clase))
-        .slice(0, 20);
+        .filter(c => c.total > 0 && !['Thing','NamedIndividual'].includes(c.clase));
 
       document.getElementById('filterBtns').innerHTML = clasesConIndividuos.map(c => {
         const claseLabel = tp('clase.' + c.clase) || escapeHtml(c.clase);
@@ -383,6 +382,8 @@ const KEY_PROPS = [
   'numero hornillas','capacidad tazas','capacidad carga','rpm centrifugado',
   'potencia microondas','area cobertura','numero velocidades','memoria ram',
   'almacenamiento interno','capacidad congelacion','vida util estimada',
+  'correo electronico dueno','nombre dueno','telefono dueno',
+  'ano creacion marca','pais origen marca','sitio web oficial',
   'tecnologia inverter','tv smart','portable','conectividad red',
   'fabricado por','tiene componente','pais origen marca','ano creacion marca'
 ];
