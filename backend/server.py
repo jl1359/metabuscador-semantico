@@ -91,6 +91,27 @@ ES_TO_FR = {
     "extractor de jugos": "extracteur de jus",
 }
 
+ES_TO_IT = {
+    "refrigerador": "frigorifero", "lavadora": "lavatrice",
+    "televisor": "televisore", "pantalla": "schermo",
+    "aire acondicionado": "condizionatore", "termostato": "termostato",
+    "computadora": "computer", "calefactor": "stufa",
+    "secadora de cabello": "asciugacapelli", "horno": "forno",
+    "horno electrico": "forno elettrico", "cafetera": "caffettiera",
+    "freezer": "congelatore", "tostadora": "tostapane",
+    "lavavajillas": "lavastoviglie", "microondas": "microonde",
+    "secadora": "asciugatrice", "secadora de ropa": "asciugatrice",
+    "ventilador": "ventilatore", "plancha de cabello": "piastra per capelli",
+    "cocina": "cucina", "equipo de sonido": "impianto stereo",
+    "aspiradora": "aspirapolvere", "bateria": "batteria",
+    "licuadora": "frullatore", "sensor": "sensore", "marca": "marca",
+    "dueño": "proprietario", "motor electrico": "motore elettrico",
+    "compresor": "compressore", "filtro": "filtro",
+    "control remoto": "telecomando", "lampara": "lampada",
+    "plancha": "ferro da stiro", "exprimidor": "spremiagrumi",
+    "extractor de jugos": "estrattore di succo",
+}
+
 # ── Construye el cache de individuos desde owlready2 ─────
 def construir_cache():
     global individuos_cache
@@ -188,6 +209,14 @@ def enriquecer_grafo_multilingue():
                 if k in label_fr:
                     label_fr = label_fr.replace(k, v)
             nuevas_tripletas.append((sujeto, RDFS.label, rdflib.Literal(label_fr, lang='fr')))
+
+        # Agregar @it
+        if 'it' not in labels_existentes:
+            label_it = nombre_uri
+            for k, v in ES_TO_IT.items():
+                if k in label_it:
+                    label_it = label_it.replace(k, v)
+            nuevas_tripletas.append((sujeto, RDFS.label, rdflib.Literal(label_it, lang='it')))
 
     for triple in nuevas_tripletas:
         grafo_local.add(triple)
@@ -302,8 +331,8 @@ def buscar_local():
     clase_filtro = request.args.get("clase", "").strip().lower()
     lang         = request.args.get("lang",  "es").strip().lower()
 
-    # Validar idioma (ahora soporta 3 idiomas)
-    if lang not in ['es', 'en', 'pt', 'fr', 'both']:
+    # Validar idioma (ahora soporta 4 idiomas + local)
+    if lang not in ['es', 'en', 'pt', 'fr', 'it', 'both']:
         lang = 'es'
 
     # Diccionario de traducción EN → ES (para búsqueda en ontología local en español)
@@ -396,6 +425,44 @@ def buscar_local():
         "extracteur de jus": "extractor de jugos",
     }
 
+    # Diccionario de traducción IT → ES (5º idioma: Italiano)
+    IT_TO_ES = {
+        "frigorifero": "refrigerador",
+        "lavatrice": "lavadora",
+        "televisore": "televisor", "tv": "televisor",
+        "schermo": "pantalla",
+        "condizionatore": "aire acondicionado",
+        "termostato": "termostato",
+        "computer": "computadora",
+        "stufa": "calefactor",
+        "asciugacapelli": "secadora de cabello",
+        "forno": "horno", "forno elettrico": "horno electrico",
+        "caffettiera": "cafetera", "macchina da caffè": "cafetera",
+        "congelatore": "freezer",
+        "tostapane": "tostadora",
+        "lavastoviglie": "lavavajillas",
+        "microonde": "microondas",
+        "asciugatrice": "secadora",
+        "ventilatore": "ventilador",
+        "piastra per capelli": "plancha de cabello",
+        "cucina": "cocina",
+        "impianto stereo": "equipo de sonido", "stereo": "equipo de sonido",
+        "aspirapolvere": "aspiradora",
+        "batteria": "bateria",
+        "frullatore": "licuadora",
+        "sensore": "sensor",
+        "marca": "marca",
+        "proprietario": "dueño",
+        "motore elettrico": "motor electrico",
+        "compressore": "compresor",
+        "filtro": "filtro",
+        "telecomando": "control remoto",
+        "lampada": "lampara",
+        "ferro da stiro": "plancha",
+        "spremiagrumi": "exprimidor",
+        "estrattore di succo": "extractor de jugos",
+    }
+
     terminos = []
     for t in terminos_crudos:
         t_lower = t.lower()
@@ -405,6 +472,8 @@ def buscar_local():
             terminos.append(PT_TO_ES[t_lower])
         elif lang == 'fr' and t_lower in FR_TO_ES:
             terminos.append(FR_TO_ES[t_lower])
+        elif lang == 'it' and t_lower in IT_TO_ES:
+            terminos.append(IT_TO_ES[t_lower])
         else:
             terminos.append(t)
 
@@ -502,12 +571,12 @@ def buscar_dbpedia():
     term_raw = request.args.get("term", "").strip()
     lang_user = request.args.get("lang", "es").strip().lower()
 
-    # Validar idioma del usuario (3 idiomas soportados)
-    if lang_user not in ['es', 'en', 'pt', 'fr']:
+    # Validar idioma del usuario (5 idiomas soportados)
+    if lang_user not in ['es', 'en', 'pt', 'fr', 'it']:
         lang_user = 'es'
 
     # Mapeo de códigos de idioma → DBpedia
-    LANG_TO_DBPEDIA = {'es': 'es', 'en': 'en', 'pt': 'pt', 'fr': 'fr'}
+    LANG_TO_DBPEDIA = {'es': 'es', 'en': 'en', 'pt': 'pt', 'fr': 'fr', 'it': 'it'}
     dbp_lang = LANG_TO_DBPEDIA.get(lang_user, 'es')
 
     terminos = [t.strip() for t in re.split(r'[,\s]+', term_raw) if t.strip()]

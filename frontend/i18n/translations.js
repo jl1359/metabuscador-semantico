@@ -545,6 +545,140 @@ const i18n = {
     'sparql.comment.local.parallel': '# Busca simultânea — consultas paralelas para cada termo',
     'sparql.comment.dbpedia.bif': '# Busca de texto completo com Virtuoso bif:contains',
     'language.selector.title': 'Mudar idioma',
+  },
+  it: {
+    // ══ HEADER & BRANDING ══
+    'header.badge': 'Web Semantico · UMSS',
+    'header.title': 'Motore di Ricerca Semantico',
+    'header.subtitle': 'Ontologia degli Elettrodomestici · ',
+    'header.tech': 'OWL + SPARQL',
+
+    // ══ ESTADÍSTICAS ══
+    'stats.individuals': 'Individui',
+    'stats.classes': 'Classi',
+    'stats.properties': 'Proprietà',
+    'stats.triples': 'Triple RDF',
+
+    // ══ CARGADOR DE ONTOLOGÍA ══
+    'loader.title': 'Carica Ontologia OWL',
+    'loader.drag': 'Trascina il tuo file .owx / .owl / .rdf',
+    'loader.click': 'o clicca per selezionare',
+    'loader.note': 'Il file viene elaborato nel backend · RDFLib + owlready2',
+    'loader.loading': 'Caricamento ontologia con RDFLib...',
+    'loader.error.notfound': 'Backend non trovato',
+    'loader.error.terminal': 'Esegui nel tuo terminale:',
+
+    // ══ BÚSQUEDA ══
+    'search.placeholder': 'Cerca es. \'samsung, lavatrice, frullatore\'... (separato da virgole)',
+    'search.button': 'Ricerca Federata',
+    'search.loading.local': 'Ricerca nell\'ontologia locale...',
+    'search.loading.dbpedia': 'Interrogazione DBpedia...',
+
+    // ══ PESTAÑAS / TABS ══
+    'tabs.local': '🗂 Ricerca Locale',
+    'tabs.local.badge': 'OWL',
+    'tabs.dbpedia': '🌐 DBpedia',
+    'tabs.dbpedia.badge': 'SPARQL Remoto',
+
+    // ══ PANEL SPARQL ══
+    'sparql.local': 'Query SPARQL · Locale',
+    'sparql.dbpedia': 'Query SPARQL · DBpedia',
+    'sparql.toggle.show': '▶ mostra',
+    'sparql.toggle.hide': '▼ nascondi',
+    'sparql.toggle.show.text': '▶ mostra',
+
+    // ══ RESULTADOS ══
+    'results.unified': '🎯 Risultati di Ricerca',
+    'results.local': '🏠 Risultati Locali',
+    'results.dbpedia': '🌐 DBpedia',
+    'results.ready': 'Pronto per la ricerca',
+    'results.ready.hint': 'Digita qualcosa sopra o seleziona una classe',
+    'results.empty': 'Nessun risultato',
+    'results.empty.local': 'Nessuna corrispondenza trovata per',
+    'results.empty.dbpedia': 'Nessun risultato in DBpedia',
+    'results.empty.dbpedia.hint': 'Prova: "lavatrice", "frigorifero", "microonde"',
+    'results.count': 'risultato',
+    'results.count.plural': 'risultati',
+    'results.showing': 'Mostrando',
+    'results.of': 'di',
+    'results.refine': 'Affina la tua ricerca.',
+    'results.source.local': 'RDFLib SPARQL locale',
+    'results.source.dbpedia': 'DBpedia SPARQL remoto',
+
+    // ══ DETALLE / MODAL ══
+    'modal.properties': 'Proprietà',
+    'modal.no.properties': 'Nessuna proprietà registrata',
+
+    // ══ EXPLORER DE ONTOLOGÍA ══
+    'explorer.title': 'Esploratore di Ontologie',
+
+    // ══ ERRORES ══
+    'error.title': 'Errore',
+    'error.connection': 'Errore di connessione locale:',
+    'error.network': 'Errore di rete',
+    'error.sparql': 'Errore durante l\'esecuzione di SPARQL:',
+    'error.backend': 'Impossibile connettersi al backend:',
+    'error.dbpedia.title': 'Errore DBpedia',
+    'error.dbpedia': 'Errore nell\'interrogazione a DBpedia',
+    'error.ontology.notloaded': 'Ontologia non caricata',
+    'error.file': 'Nessun file ricevuto',
+
+    // ══ DBPEDIA CARDS ══
+    'dbpedia.link.wikipedia': '🌐 Vedi su Wikipedia',
+    'dbpedia.link.resource': '◈ Risorsa DBpedia',
+    'dbpedia.button.save': '💾 Salva nella mia Ontologia',
+    'dbpedia.button.saving': '⏳ Salvataggio...',
+    'dbpedia.button.saved': '✅ Salvato!',
+    'dbpedia.button.error': '❌ Errore',
+    'dbpedia.button.network.error': '❌ Errore di rete',
+    'dbpedia.type': 'DBpedia · Elettrodomestico',
+    'dbpedia.no.description': 'Nessuna descrizione disponibile.',
+    'dbpedia.status': 'dbpedia.org/sparql · SPARQLWrapper',
+    'dbpedia.knowledge.base': 'Base di Conoscenza Remota',
+    'dbpedia.results.message': 'I risultati di DBpedia appariranno qui',
+    'dbpedia.endpoint': 'Endpoint: dbpedia.org/sparql · SPARQLWrapper',
+
+    // ══ FOOTER ══
+    'footer.text': 'Motore di Ricerca Semantico · ',
+    'footer.highlight': 'Ontologia OWL degli Elettrodomestici',
+    'footer.year': 'UMSS Web Semantico 2025',
+    'footer.tech': 'HTML5 · OWL / RDF / SPARQL · Ricerca Fuzzy · RDFLib + owlready2 · SPARQLWrapper',
+
+    // ══ ALERTS & CONFIRMATIONS ══
+    'alert.save.error': 'Errore durante il salvataggio:',
+    'alert.network.error': 'Errore di rete:',
+
+    // ══ SPARQL COMMENTS ══
+    'sparql.comment.local': '# Motore di Ricerca Semantico — RDFLib + SPARQL',
+    'sparql.comment.local.executor': '# Eseguito da: Python RDFLib nel backend',
+    'sparql.comment.local.multiple': '# Ricerca multipla (OR)',
+    'sparql.comment.local.semantic': '# Ricerca semantica fuzzy',
+    'sparql.comment.local.filter': '# Filtra per classe selezionata',
+
+    'sparql.comment.dbpedia': 'BC Remota — DBpedia SPARQL',
+    'sparql.comment.dbpedia.endpoint': '# Endpoint: https://dbpedia.org/sparql',
+
+    // ══ SELECTOR DE IDIOMA ══
+    'language.selector': 'Lingua',
+    'language.es': 'Español',
+    'language.en': 'English',
+    'language.pt': 'Português',
+    'language.fr': 'Français',
+    'language.it': 'Italiano',
+
+    // ══ MENSAJES HARDCODEADOS (backend / carga) ══
+    'backend.notfound': 'Backend non trovato',
+    'backend.run.terminal': 'Esegui nel tuo terminale:',
+    'loader.loading.rdflib': 'Caricamento ontologia con RDFLib...',
+    'error.load.file': 'Errore durante il caricamento del file:',
+    'error.connect.backend': 'Impossibile connettersi al backend:',
+    'dbpedia.loading.desc': 'Caricamento descrizione...',
+    'search.loading': 'Ricerca in corso...',
+    'badge.local': 'Locale',
+    'badge.dbpedia': 'DBpedia',
+    'sparql.comment.local.parallel': '# Ricerca simultanea — query parallele per ogni termine',
+    'sparql.comment.dbpedia.bif': '# Ricerca testuale completa con Virtuoso bif:contains',
+    'language.selector.title': 'Cambia lingua',
   }
 };
 
@@ -556,7 +690,7 @@ function t(key, lang = currentLanguage || 'es') {
 }
 
 // Lista de idiomas soportados
-const SUPPORTED_LANGS = ['es', 'en', 'pt', 'fr'];
+const SUPPORTED_LANGS = ['es', 'en', 'pt', 'fr', 'it'];
 
 // ═══════════════════════════════════════════════════════════════════
 // TRADUCCIONES DE DATA PROPERTIES Y CLASES DE ONTOLOGÍA
@@ -847,6 +981,76 @@ const propLabels = {
     'clase.Lampara':           'Lampe',
     'clase.Compresor':         'Compresseur',
     'clase.Filtro':            'Filtre',
+  },
+  it: {
+    'consumo potencia':       'Consumo Elettrico',
+    'capacidad litros':       'Capacità (litri)',
+    'capacidad lavado':       'Capacità Lavaggio (kg)',
+    'capacidad refrigeracion':'Capacità di Raffreddamento',
+    'eficiencia energetica':  'Efficienza Energetica',
+    'tamano pantalla':        'Dimensioni Schermo',
+    'voltaje aparato':        'Tensione (V)',
+    'peso aparato':           'Peso (kg)',
+    'numero hornillas':       'Num. Fornelli',
+    'capacidad tazas':        'Capacità Tazze',
+    'capacidad carga':        'Capacità di Carico',
+    'rpm centrifugado':       'Velocità Centrifuga (RPM)',
+    'potencia microondas':    'Potenza Microonde',
+    'area cobertura':         'Area di Copertura',
+    'numero velocidades':     'Num. Velocità',
+    'memoria ram':            'Memoria RAM',
+    'almacenamiento interno': 'Archiviazione',
+    'capacidad congelacion':  'Capacità di Congelamento',
+    'vida util estimada':     'Durata Stimata (ore)',
+    'tecnologia inverter':    'Tecnologia Inverter',
+    'tv smart':               'Smart TV',
+    'portable':               'Portatile',
+    'conectividad red':       'Connettività di Rete',
+    'fabricado por':          'Prodotto da',
+    'tiene componente':       'Componente',
+    'pais origen marca':      'Paese di Origine',
+    'ano creacion marca':     'Anno di Creazione',
+    'sitio web oficial':      'Sito Web Ufficiale',
+    'correo electronico dueno':'Email',
+    'nombre dueno':           'Nome del Proprietario',
+    'telefono dueno':         'Telefono',
+    'bool.true':  '✓ Sì',
+    'bool.false': '✗ No',
+    'clase.Refrigerador':      'Frigorifero',
+    'clase.Lavadora':          'Lavatrice',
+    'clase.Televisor':         'Televisore',
+    'clase.Computadora':       'Computer',
+    'clase.Microondas':        'Microonde',
+    'clase.Aspiradora':        'Aspirapolvere',
+    'clase.Licuadora':         'Frullatore',
+    'clase.Cafetera':          'Macchina da Caffè',
+    'clase.Aire Acondicionado':'Condizionatore',
+    'clase.Horno':             'Forno',
+    'clase.Sensor':            'Sensore',
+    'clase.Marca':             'Marca',
+    'clase.Tipo Bateria':      'Tipo di Batteria',
+    'clase.Lavavajillas':      'Lavastoviglie',
+    'clase.Motor Electrico':   'Motore Elettrico',
+    'clase.Dueño':             'Proprietario',
+    'clase.Secadora de Ropa':  'Asciugatrice',
+    'clase.Secadora de Cabello':'Asciugacapelli',
+    'clase.Equipo de Sonido':  'Impianto Stereo',
+    'clase.Plancha de Cabello':'Piastra per Capelli',
+    'clase.Pantalla':          'Schermo',
+    'clase.Ventilador':        'Ventilatore',
+    'clase.Tostadora':         'Tostapane',
+    'clase.Horno Electrico':   'Forno Elettrico',
+    'clase.Cocina':            'Cucina',
+    'clase.Termostato':        'Termostato',
+    'clase.Calefactor':        'Stufa',
+    'clase.Freezer':           'Congelatore',
+    'clase.Secadora':          'Asciugatrice',
+    'clase.Plancha':           'Ferro da Stiro',
+    'clase.Exprimidor':        'Spremiagrumi',
+    'clase.Control Remoto':    'Telecomando',
+    'clase.Lampara':           'Lampada',
+    'clase.Compresor':         'Compressore',
+    'clase.Filtro':            'Filtro',
   }
 };
 
