@@ -449,13 +449,11 @@ function generateDbpCardsHtml(items) {
     if (r.descripcion) {
       const text = r.descripcion.length > 120 ? r.descripcion.slice(0, 120) + '...' : r.descripcion;
       descHtml = `<p class="dbp-abstract" id="${descId}">${text}</p>`;
-    } else if (r.wikiPage) {
+    } else {
       descHtml = `<p class="dbp-abstract" id="${descId}">
                     <span style="opacity:0.6; font-size:11px;">${t('dbpedia.loading.desc')}</span>
                   </p>`;
-      fetchWikipediaDesc(r.wikiPage, descId);
-    } else {
-      descHtml = `<p class="dbp-abstract" id="${descId}"><em style="opacity:0.5">${t('dbpedia.no.description')}</em></p>`;
+      fetchWikipediaDesc(r.nombre, currentLanguage, descId);
     }
 
     const imgHtml = r.imagen
@@ -487,12 +485,10 @@ function generateDbpCardsHtml(items) {
   }).join('');
 }
 
-// ── Fallback a Wikipedia API si DBpedia no tiene abstract ──
-async function fetchWikipediaDesc(wikiUrl, elementId) {
+// ── Fallback a Wikipedia API usando el idioma seleccionado ──
+async function fetchWikipediaDesc(term, lang, elementId) {
   try {
-    const title = wikiUrl.split('/').pop();
-    const lang = wikiUrl.includes('es.wikipedia') ? 'es' : 'en';
-    const res = await fetch(`https://${lang}.wikipedia.org/api/rest_v1/page/summary/${title}`);
+    const res = await fetch(`https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(term)}`);
     const data = await res.json();
     const el = document.getElementById(elementId);
     if (el && data.extract) {
