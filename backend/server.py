@@ -599,14 +599,13 @@ def buscar_dbpedia():
     PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
     PREFIX foaf: <http://xmlns.com/foaf/0.1/>
 
-    SELECT DISTINCT ?recurso ?nombre ?abs_pref ?abs_en ?imagen ?wiki
+    SELECT DISTINCT ?recurso ?nombre ?abs_pref ?imagen ?wiki
     WHERE {{
       ?recurso rdfs:label ?nombre .
       ?nombre bif:contains "{bif_query}" .
       FILTER ({filtro_lang})
 
       OPTIONAL {{ ?recurso dbo:abstract ?abs_pref . FILTER (langMatches(lang(?abs_pref), "{dbp_lang}")) }}
-      OPTIONAL {{ ?recurso dbo:abstract ?abs_en   . FILTER (langMatches(lang(?abs_en),   "en")) }}
       OPTIONAL {{ ?recurso dbo:thumbnail ?imagen . }}
       OPTIONAL {{ ?recurso foaf:isPrimaryTopicOf ?wiki . }}
     }}
@@ -628,9 +627,8 @@ def buscar_dbpedia():
                 continue
             vistos.add(recurso)
             
-            # Preferir abstract en idioma del usuario, fallback a inglés
-            descripcion = (b.get("abs_pref", {}).get("value", "")
-                           or b.get("abs_en", {}).get("value", ""))
+            # Tomar abstract solo en el idioma del usuario (vaciado si no existe, para usar API de Wikipedia en frontend)
+            descripcion = b.get("abs_pref", {}).get("value", "")
 
             formateados.append({
                 "recurso":     recurso,
