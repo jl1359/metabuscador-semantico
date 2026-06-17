@@ -334,7 +334,7 @@ pre .comment { color: var(--muted); }
   display: flex; align-items: flex-start;
   justify-content: space-between; gap: 12px; margin-bottom: 12px;
 }
-.card-name { font-size: 17px; font-weight: 700; color: var(--text); flex: 1; min-width: 0; }
+.card-name { font-size: 17px; font-weight: 700; color: var(--text); flex: 1; min-width: 0; word-wrap: break-word; overflow-wrap: break-word; word-break: break-word; }
 .card-badges {
   display: flex; flex-direction: column; align-items: flex-end; gap: 6px;
   flex-shrink: 0;
@@ -514,6 +514,9 @@ pre .comment { color: var(--muted); }
 .dbp-name {
   font-size: 17px; font-weight: 700; color: var(--text);
   margin-bottom: 4px;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 .dbp-type {
   display: inline-block;
