@@ -3,7 +3,7 @@
    app.js v5 — Multi-búsqueda simultánea + agrupación visual
    ══════════════════════════════════════════════ */
 
-const API = 'http://localhost:5000';
+const API = 'http://127.0.0.1:5000';
 
 // ══════════════════════════════════════════════
 // MULTILINGUALIDAD (i18n)
@@ -625,10 +625,14 @@ async function guardarEnOntologia(event, nombre, uri) {
   btn.disabled  = true;
 
   try {
+    const params = new URLSearchParams();
+    params.append('nombre', nombre);
+    params.append('uri', uri);
+
     const resp = await fetch(`${API}/poblar`, {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ nombre, uri })
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body:    params
     });
     const data = await resp.json();
 

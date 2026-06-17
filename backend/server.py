@@ -1,7 +1,5 @@
-# ══════════════════════════════════════════════════════════
 # MetaBuscador Semántico — Backend Python v3
 # server.py — owlready2 + RDFLib SPARQL + SPARQLWrapper + Flask
-# ══════════════════════════════════════════════════════════
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -20,14 +18,13 @@ grafo_local       = rdflib.Graph()
 # Guarda la ruta real del archivo cargado para poder reguardar en el mismo lugar
 ruta_archivo_cargado = None
 
-# ── Namespaces RDF/RDFS para enriquecimiento de etiquetas ──────────────────
+#  Namespaces RDF/RDFS para enriquecimiento de etiquetas 
 RDFS = rdflib.namespace.RDFS
 RDF  = rdflib.namespace.RDF
 
-# ═══════════════════════════════════════════════════════════
 # DICCIONARIO DE TRADUCCIÓN Español → Inglés y Portugués
 # (para enriquecer el grafo en RAM con rdfs:label @en y @pt)
-# ═══════════════════════════════════════════════════════════
+
 ES_TO_EN = {
     "refrigerador": "refrigerator", "lavadora": "washing machine",
     "televisor": "television", "pantalla": "screen",
@@ -112,7 +109,7 @@ ES_TO_IT = {
     "extractor de jugos": "estrattore di succo",
 }
 
-# ── Construye el cache de individuos desde owlready2 ─────
+# Construye el cache de individuos desde owlready2 
 def construir_cache():
     global individuos_cache
     individuos_cache = []
@@ -162,7 +159,7 @@ def construir_cache():
     print(f"[RDFLib + owlready2] Cache: {len(individuos_cache)} individuos")
 
 
-# ── Enriquece el grafo en RAM con rdfs:label @en y @pt ───────────────
+#  Enriquece el grafo en RAM con rdfs:label @en y @pt 
 def enriquecer_grafo_multilingue():
     """Añade rdfs:label en @en y @pt a cada individuo basado en su nombre en ES."""
     sujetos = list(grafo_local.subjects(RDF.type, None))
@@ -653,7 +650,7 @@ def poblar_ontologia():
     if not ontologia_cargada:
         return jsonify({"ok": False, "error": "Ontología no cargada"}), 400
 
-    data = request.json
+    data = request.get_json(silent=True) or request.form
     nombre      = data.get("nombre", "")
     uri_dbpedia = data.get("uri", "")
 
@@ -718,4 +715,4 @@ if __name__ == "__main__":
     print("  Puerto: http://localhost:5000")
     print("=" * 55)
     auto_cargar()
-    app.run(debug=True, port=5000)
+    app.run(debug=False, port=5000)
